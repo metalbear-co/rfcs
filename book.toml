@@ -1,0 +1,17 @@
+[book]
+title = "The MetalBear RFC Book"
+
+[output.html]
+smart-punctuation = true
+no-section-label = true
+git-repository-url = "https://github.com/metalbear-co/rfcs"
+site-url = "/rfcs/"
+
+[output.html.search]
+heading-split-level = 0
+
+[output.html.playground]
+runnable = false
+
+[build]
+extra-watch-dirs = ["text"]
