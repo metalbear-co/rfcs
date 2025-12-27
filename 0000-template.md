@@ -31,7 +31,7 @@ Explain the proposal as if it was already included in the product and you were t
 - Introducing new named concepts.
 - Explaining the feature in terms of examples and typical workflows.
 - Explaining how users should think about the feature, and how it impacts the way they use the product.
-- If applicable, provide sample configuration snippets, CLI commands, response, info or error messages, custome
+- If applicable, provide sample configuration snippets, CLI commands, response, info or error messages, custom
 resource templates, etc.
 - If applicable, describe how this interacts with existing product features. Using `mirrord` as an example, how
 this affects existing features such as file ops, traffic mirroring/stealing, fetching remote env, DNS, etc. 
