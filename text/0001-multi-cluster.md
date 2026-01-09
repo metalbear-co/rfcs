@@ -3,8 +3,8 @@
 - 2026-01-09:
 - RFC PR: [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/issues/3)
 - RFC reference:
-  - [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/0000)
-  - [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/0000)
+  - [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
+  - [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
 
 ## Summary
 
