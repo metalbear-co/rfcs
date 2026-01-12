@@ -305,38 +305,21 @@ In single-cluster, the `AgentRouter` talks to one agent. In multi-cluster, the `
 
 ## Connection Health and Ping-Pong
 
-Maintaining healthy connections is critical in a distributed system. mirrord uses a ping-pong mechanism to detect unresponsive connections and clean them up before they cause problems.
+Each operator needs to know if the connection to its agent is still alive. It does this by sending `Ping` messages every few seconds. The agent responds with `Pong`. If the operator doesn't receive a pong for 60 seconds, it assumes something is wrong and terminates the agent.
 
-### How Ping-Pong Works in Single-Cluster
+### The Problem in Multi-Cluster
 
-In single-cluster mirrord, the operator and agent exchange ping-pong messages to verify the connection is alive. The operator sends a `Ping` message periodically, and the agent responds with a `Pong`. If the operator doesn't receive a pong within a timeout period, it considers the connection dead and cleans up the session.
+In multi-cluster, there are multiple operators (one per cluster), each with its own agent. The CLI sends ping messages, and the Primary operator's router decides where to send them.
 
-### Ping-Pong in Multi-Cluster
+If pings only go to one cluster (the Default/Primary cluster), the other clusters never receive any pings. Their operators wait, receive nothing for 60 seconds, and then kill their agents. This is why remote agents were disappearing after exactly 60 seconds.
 
-In multi-cluster, the ping-pong mechanism needs special handling. The `ClientMessage::Ping` is classified as a stateful operation in the routing logic:
+### The Solution
 
-```rust
-pub fn is_stateful_operation(msg: &ClientMessage) -> bool {
-    matches!(msg,
-        // ... other stateful operations ...
-        | ClientMessage::Ping
-    )
-}
-```
+Ping messages are broadcast to ALL clusters. Every cluster receives the ping, every agent responds with pong, and every operator knows its connection is alive. The CLI receives multiple pong responses (one per cluster), but that's fine - it just means all clusters are healthy.
 
-This means ping messages are routed ONLY to the Default cluster, not broadcast to all clusters. Why? Because we want exactly one agent to handle the ping-pong exchange. If we broadcast pings to all clusters, we'd get multiple pongs back, which would confuse the health checking logic.
+### WebSocket Keep-Alive
 
-By routing pings only to the Default cluster, we maintain the same semantics as single-cluster: one ping, one pong, clear health status.
-
-### Operator-to-Operator Ping-Pong
-
-There's another layer of ping-pong in multi-cluster: between the Primary operator and remote operators. Each WebSocket connection from the Primary to a remote operator has its own health checking.
-
-If the Primary operator loses connection to a remote operator (detected via WebSocket ping-pong timeout), it knows that cluster is unreachable. The router can then handle this gracefully - either by failing the session or by continuing with the remaining clusters, depending on the configuration.
-
-### OperatorPong Message
-
-The `ClientMessage::OperatorPong` is also classified as a stateful operation. This is the response to an operator-level ping (as opposed to an agent-level ping). Like regular pings, these are routed only to the Default cluster to maintain clear, single-source health semantics.
+The Primary operator also sends low-level WebSocket ping frames to each remote operator every 30 seconds. This keeps the network connection itself alive and helps detect if a remote cluster becomes unreachable.
 
 ---
 
