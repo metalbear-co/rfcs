@@ -1,3 +1,5 @@
 *~
 book/
 src/
+# macOS
+.DS_Store
