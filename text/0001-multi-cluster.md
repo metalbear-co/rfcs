@@ -1,6 +1,6 @@
 - Feature Name: `multi_cluster`
 - Start Date: 2026-01-09
-- Last Updated: 2026-01-09
+- Last Updated: 2026-01-21
 - RFC PR: [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/issues/3)
 - RFC reference:
   - [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
@@ -16,35 +16,35 @@ Enable developers to run mirrord against pods in any Kubernetes cluster they hav
 <details>
 <summary><strong> Demo 1: mirrord Multi-Cluster for Kubernetes: Traffic Stealing (Primary + Remote)</strong></summary>
 
-<p><em><iframe src="VIDEO_URL" width="100%" height="400" allowfullscreen></iframe></em></p>
+<p><iframe src="https://youtu.be/d7D1d-B0_vI?si=mPqfFAe2v-bwda9b" width="100%" height="400" allowfullscreen></iframe></p>
 
 </details>
 
 <details>
 <summary><strong>Demo 2: mirrord Multi-Cluster for Kubernetes: Traffic Mirroring (Primary + Remote)</strong></summary>
 
-<p><em><iframe src="VIDEO_URL" width="100%" height="400" allowfullscreen></iframe></em></p>
+<p><em><iframe src="https://youtu.be/hWNnlqo18uw?si=WD5vNZk2K2vqiz24" width="100%" height="400" allowfullscreen></iframe></em></p>
 
 </details>
 
 <details>
 <summary><strong>Demo 3: mirrord Multi-Cluster for Kubernetes: Postgres Test - Primary as Management-Only</strong></summary>
 
-<p><em><iframe src="VIDEO_URL" width="100%" height="400" allowfullscreen></iframe></em></p>
+<p><em><iframe src="https://youtu.be/v8POUAFOKs4?si=mTRSWxYwJhydC4mG" width="100%" height="400" allowfullscreen></iframe></em></p>
 
 </details>
 
 <details>
 <summary><strong>Demo 4: mirrord Multi-Cluster for Kubernetes: Postgres Test - Direct Connection to Remote Cluster</strong></summary>
 
-<p><em><iframe src="VIDEO_URL" width="100%" height="400" allowfullscreen></iframe></em></p>
+<p><em><iframe src="https://youtu.be/h77LBVFb_10?si=6wHq8I2gJNblc0Jm" width="100%" height="400" allowfullscreen></iframe></em></p>
 
 </details>
 
 <details>
 <summary><strong>Demo 5: mirrord Multi-Cluster for Kubernetes: Postgres Test - Primary as Default </strong></summary>
 
-<p><em><iframe src="VIDEO_URL" width="100%" height="400" allowfullscreen></iframe></em></p>
+<p><em><iframe src="https://youtu.be/ccbjy13EEgQ?si=hnPWu_JN7tpvwSdg" width="100%" height="400" allowfullscreen></iframe></em></p>
 
 </details>
 
@@ -115,60 +115,171 @@ Important: If Primary is Management-Only, you MUST set a different cluster as De
 
 ---
 
-## Administrator Configuration
+## Installation Steps
 
-This section covers how an administrator sets up multi-cluster mirrord. The setup involves selecting a primary cluster, installing the operator with multi-cluster enabled, and configuring access to all clusters.
+This section covers how to do the initial setup. The setup involves selecting a primary cluster, installing the operator with multi-cluster enabled, and configuring access to all remote clusters.
 
-### Installation Steps
+### Authentication Methods
 
-The administrator follows these steps to enable multi-cluster:
+Multi-cluster authentication uses ServiceAccounts for remote clusters and Secrets for the primary cluster. There are two authentication methods:
 
-1. **Select a Primary cluster** - This becomes the entry point for all multi-cluster sessions. Developers will authenticate against this cluster.
+1. **Bearer Token** - Uses ServiceAccount tokens that are automatically refreshed via the TokenRequest API. You only need to setup a ServiceAccount and generate an initial token during setup. After that, the operator automatically refreshes the token before expiration.
 
-2. **Install the operator with multi-cluster enabled** - Use the Helm chart with multi-cluster configuration.
+2. **mTLS (mutual TLS)** - For clusters that require client certificate authentication. The you can provide `clientCertData` and `clientKeyData`.
 
-3. **Configure cluster contexts** - Provide the kubeconfig contexts for all clusters that should participate in multi-cluster sessions.
+Also you can provide `caData` (the server's CA certificate) if it's required.
 
-### Helm Chart Configuration
+### Remote Cluster Setup
 
-The operator is installed with multi-cluster configuration via the Helm chart. The key settings are:
+For each remote cluster that will participate in multi-cluster sessions, you must create a ServiceAccount with appropriate permissions. This is a one-time setup per cluster.
+
+Apply the following manifests to each remote cluster (final permissions TBD):
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mirrord
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mirrord-primary-access
+  namespace: mirrord
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mirrord-primary-access
+rules:
+  # Token refresh
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    verbs: ["create"]
+  # Session management
+  - apiGroups: ["operator.metalbear.co"]
+    resources: ["mirrordsessions", "mirrordclustersessions"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Target access
+  - apiGroups: ["operator.metalbear.co"]
+    resources: ["targets"]
+    verbs: ["get", "list", "watch"]
+  # WebSocket subresource
+  - apiGroups: ["operator.metalbear.co"]
+    resources: ["targets/connect"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mirrord-primary-access
+subjects:
+  - kind: ServiceAccount
+    name: mirrord-primary-access
+    namespace: mirrord
+roleRef:
+  kind: ClusterRole
+  name: mirrord-primary-access
+  apiGroup: rbac.authorization.k8s.io
+```
+
+After creating the ServiceAccount, generate an initial token:
+
+```bash
+kubectl create token mirrord-primary-access -n mirrord --duration=24h
+```
+
+This initial token is only needed for the first setup. Once the operator starts, it automatically refreshes tokens using the TokenRequest API before they expire, matching the original token's lifetime.
+
+### Primary Cluster Helm Configuration
+
+Install the operator on the primary cluster with multi-cluster configuration. You can either:
+
+1. Provide cluster credentials directly in the Helm values (Helm creates the secrets automatically)
+2. Create the secrets manually and let the operator discover them
 
 ```yaml
 operator:
   multiCluster:
+    # Enable multi-cluster mode
     enabled: true
-    primaryCluster: "mirrord-primary"
-    defaultCluster: "mirrord-remote-1"  # Optional, defaults to primary
-    primaryManagementOnly: false         # Set true if primary has no workloads
-    contexts:
-      mirrord-primary: "mirrord-primary"
-      mirrord-remote-1: "mirrord-remote-1"
-      mirrord-remote-2: "mirrord-remote-2"
+
+    # Logical name of this cluster
+    clusterName: "primary"
+
+    # Default cluster for stateful operations (env vars, files, db branching)
+    defaultCluster: "us-east-1"
+
+    # Set to true if primary cluster has no workloads (management-only)
+    primaryIsManagementOnly: true
+
+    # Cluster credentials (optional - can also create secrets manually)
+    # If provided, Helm will create the secrets automatically
+    clusters:
+      # Bearer token authentication
+      us-east-1:
+        server: "https://api.us-east-1.example.com:6443"
+        caData: "LS0tLS1CRUdJTi..."  # Base64-encoded CA certificate
+        bearerToken: "eyJhbGciOiJS..."  # Initial token from `kubectl create token`
+
+      # mTLS authentication
+      eu-west-1:
+        server: "https://api.eu-west-1.example.com:6443"
+        caData: "LS0tLS1CRUdJTi..."  # Base64-encoded CA certificate
+        clientCertData: "LS0tLS1CRUdJTi..."  # Base64-encoded client certificate
+        clientKeyData: "LS0tLS1CRUdJTi..."  # Base64-encoded client private key
 ```
 
-These translate to environment variables in the operator deployment:
+### Manual Secret Creation
+
+Alternatively, you can create cluster secrets manually. Secrets must be labeled with `mirrord.metalbear.co/remote-cluster=true` for the operator to discover them.
+
+For Bearer Token authentication:
 
 ```yaml
-env:
-  - name: MIRRORD_MULTI_CLUSTER_ENABLE
-    value: "true"
-  - name: MIRRORD_PRIMARY_CLUSTER
-    value: "mirrord-primary"
-  - name: MIRRORD_DEFAULT_CLUSTER
-    value: "mirrord-remote-1"
-  - name: MIRRORD_MULTI_CLUSTER_CONTEXTS
-    value: "mirrord-primary=mirrord-primary,mirrord-remote-1=mirrord-remote-1"
-  - name: MIRRORD_PRIMARY_MANAGEMENT_ONLY
-    value: "false"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-us-east-1
+  namespace: mirrord
+  labels:
+    mirrord.metalbear.co/remote-cluster: "true"
+type: Opaque
+stringData:
+  server: "https://api.us-east-1.example.com:6443"
+  caData: "LS0tLS1CRUdJTi..."
+  bearerToken: "eyJhbGciOiJS..."
 ```
 
-### Cluster Context Mapping
+For mTLS authentication:
 
-The `MIRRORD_MULTI_CLUSTER_CONTEXTS` environment variable maps cluster names to kubeconfig context names. The format is a comma-separated list of `name=context` pairs:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-eu-west-1
+  namespace: mirrord
+  labels:
+    mirrord.metalbear.co/remote-cluster: "true"
+type: Opaque
+stringData:
+  server: "https://api.eu-west-1.example.com:6443"
+  caData: "LS0tLS1CRUdJTi..."
+  clientCertData: "LS0tLS1CRUdJTi..."
+  clientKeyData: "LS0tLS1CRUdJTi..."
+```
 
-```
-mirrord-primary=mirrord-primary,mirrord-remote-1=mirrord-remote-1
-```
+### Token Refresh
+
+When using Bearer Token authentication, the operator automatically refreshes tokens before they expire. The refresh process:
+
+1. On startup, the operator reads all cluster secrets and builds an in-memory connection for each cluster
+2. It parses the JWT token to determine its original lifetime (from `exp` and `iat` claims).
+3. We monitor the token expiration and requests new tokens using the TokenRequest API
+4. The refresh happens with a buffer before expiration to ensure uninterrupted connectivity
+5. New tokens maintain the same lifetime as the original token
+
+This means you only need to generate tokens once during initial setup. The operator handles all subsequent renewals automatically.
 
 ---
 
