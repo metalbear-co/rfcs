@@ -32,14 +32,14 @@ When in doubt, discuss with the team first.
 To propose a major change:
 
   - Fork or clone the RFC repository
-  - Create a Github issue to reserve the RFC number
+  - Create a Github issue under the RFC repository
   - Copy `0000-template.md` to `text/0000-my-feature.md` (where "my-feature" is descriptive)
   - Fill in the RFC with care—explain motivation, design details, drawbacks, and alternatives
   - Submit a pull request and link it the Github and Linear issue
-  - Rename your file using the Github issue number (e.g., `0042-my-feature.md`)
   - Assign reviewers whose comments you're seeking
   - Build consensus through discussion and iterate on feedback
   - The team will review and decide to merge, close, or postpone
+  - Before merging, rename your file to the next available RFC number in main (e.g., `0042-my-feature.md`)
   - Once merged, the RFC is "active" and can be implemented
 
 ## The RFC life-cycle
