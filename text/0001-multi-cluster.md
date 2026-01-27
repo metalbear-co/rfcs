@@ -146,41 +146,66 @@ kind: ServiceAccount
 metadata:
   name: mirrord-primary-access
   namespace: mirrord
+  labels:
+    app.kubernetes.io/name: mirrord-operator
+    app.kubernetes.io/component: multi-cluster
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: mirrord-primary-access
+  labels:
+    app.kubernetes.io/name: mirrord-operator
+    app.kubernetes.io/component: multi-cluster
 rules:
-  # Token refresh
+  # Session CRD management
+  - apiGroups: ["mirrord.metalbear.co"]
+    resources: ["mirrordclustersessions"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["mirrord.metalbear.co"]
+    resources: ["mirrordclustersessions/status"]
+    verbs: ["get", "update", "patch"]
+  # Token refresh for credential rotation
   - apiGroups: [""]
     resources: ["serviceaccounts/token"]
     verbs: ["create"]
-  # Session management
-  - apiGroups: ["operator.metalbear.co"]
-    resources: ["mirrordsessions", "mirrordclustersessions"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # Target access
-  - apiGroups: ["operator.metalbear.co"]
-    resources: ["targets"]
+  # Target workload resolution
+  - apiGroups: [""]
+    resources: ["pods"]
     verbs: ["get", "list", "watch"]
-  # WebSocket subresource
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  # Operator target API access
   - apiGroups: ["operator.metalbear.co"]
-    resources: ["targets/connect"]
-    verbs: ["get", "create"]
+    resources: ["targets", "copytargets", "targets/port-locks"]
+    verbs: ["get", "list", "proxy"]
+  - apiGroups: ["operator.metalbear.co"]
+    resources: ["copytargets"]
+    verbs: ["create"]
+  - apiGroups: ["operator.metalbear.co"]
+    resources: ["mirrordoperators"]
+    verbs: ["get"]
+  # Queue registry sync from primary cluster (SQS splitting)
+  - apiGroups: ["queues.mirrord.metalbear.co"]
+    resources: ["mirrordworkloadqueueregistries"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: mirrord-primary-access
+  labels:
+    app.kubernetes.io/name: mirrord-operator
+    app.kubernetes.io/component: multi-cluster
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mirrord-primary-access
 subjects:
   - kind: ServiceAccount
     name: mirrord-primary-access
     namespace: mirrord
-roleRef:
-  kind: ClusterRole
-  name: mirrord-primary-access
-  apiGroup: rbac.authorization.k8s.io
 ```
 
 After creating the ServiceAccount, generate an initial token:
