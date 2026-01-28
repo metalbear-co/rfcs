@@ -294,6 +294,90 @@ stringData:
   clientKeyData: "LS0tLS1CRUdJTi..."
 ```
 
+### Verify the connection succeeded
+
+```sh
+kubectl --context {PRIMARY_CLUSTER} get mirrordoperators operator -o yaml
+```
+
+You need to have something similar, that will show you the clusters that are available and their status. If they are successfuly connected you will see `license_fingerprint` and `operator_version`, if not there will be an error field there.
+
+```yaml
+apiVersion: operator.metalbear.co/v1
+kind: MirrordOperator
+metadata:
+  name: operator
+spec:
+  copy_target_enabled: true
+  default_namespace: default
+  features:
+  - ProxyApi
+  license:
+    expire_at: "2026-08-07"
+    fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+    name: Oaks of Rogalin`s Enterprise License
+    organization: Oaks of Rogalin
+    subscription_id: 2c8d96be-c3bf-458c-9d35-a0642c2c2a77
+  multi_cluster:
+    clusterName: mirrord-primary
+    clusters:
+    - authenticationMethod: token
+      name: remote-2
+      secret: mirrord-cluster-remote-2
+      url: https://mirrord-remote-2:8443
+    - authenticationMethod: token
+      name: remote-1
+      secret: mirrord-cluster-remote-1
+      url: https://mirrord-remote-1:8443
+    defaultCluster: remote-1
+    enabled: true
+  operator_version: 3.137.0
+  protocol_version: 1.25.0
+  supported_features:
+  - ProxyApi
+  - CopyTarget
+  - CopyTargetExcludeContainers
+  - LayerReconnect
+  - ExtendableUserCredentials
+  - BypassCiCertificateVerification
+  - SqsQueueSplitting
+  - SqsQueueSplittingDirect
+status:
+  connected_clusters:
+  - connected:
+      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+      operator_version: 3.137.0
+    lastCheck: "2026-01-27T09:22:55.824115967+00:00"
+    name: remote-1
+  - connected:
+      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+      operator_version: 3.137.0
+    lastCheck: "2026-01-27T09:22:55.766848498+00:00"
+    name: remote-2
+  copy_targets: []
+  sessions: []
+  statistics:
+    dau: 0
+    mau: 0
+Connected clusters status:
+  connected_clusters:
+  - connected:
+      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+      operator_version: 3.137.0
+    lastCheck: "2026-01-27T09:22:55.824115967+00:00"
+    name: remote-1
+  - connected:
+      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+      operator_version: 3.137.0
+    lastCheck: "2026-01-27T09:22:55.766848498+00:00"
+    name: remote-2
+  copy_targets: []
+  sessions: []
+  statistics:
+    dau: 0
+    mau: 0
+```
+
 ### Token Refresh
 
 When using Bearer Token authentication, the operator automatically refreshes tokens before they expire. The refresh process:
