@@ -1,9 +1,9 @@
 - Feature Name: `rabbitmq`
 - Start Date: 2026-01-25
 - Last Updated: 2026-01-25
-- RFC PR: [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+- RFC PR: [metalbear-co/rfcs#0002](https://github.com/metalbear-co/rfcs/pull/7)
 - RFC reference:
-  - [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+  - [metalbear-co/rfcs#0002](https://github.com/metalbear-co/rfcs/pull/7)
 
 ## Summary
 [summary]: #summary
