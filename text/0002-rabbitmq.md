@@ -123,7 +123,7 @@ Here also it's the place for any tls config or custom clientProperties or some o
 
 ### MirrordWorkloadQueueRegistry extension.
 
-As part of the changes I assume best way is to extend the current `MirrordWorkloadQueueRegistry` resource, this is quite simple since the `queueType` is the tag for `SplitQueue` enum. The change should be the new arguments that are needed to define the queue and exchange binding if it is defined.
+As part of the changes I assume best way is to extend the current `MirrordWorkloadQueueRegistry` resource, this is quite simple since the `queueType` is the tag for `SplitQueue` enum. The change should be the new arguments that are needed to define the queue and exchange binding if it is defined. One caveat with generating the queue name is that permissions for read and writes are done via regex (hope simple prefix and suffix should be enough and not some template is needed).
 
 ```yaml
 apiVersion: queues.mirrord.metalbear.co/v1alpha
@@ -136,6 +136,10 @@ spec:
       queueType: RMQ
       nameSource:
         envVar: QUEUE_NAME
+      generatedName:
+        exchangePrefix: my-prefix2-
+        queuePrefix: my-prefix-
+        queueSuffix: -my-suffix
       arguments:
         x-queue-type: quorum
       options:
@@ -155,9 +159,9 @@ status:
   activeRmqSplits:
     queueNames:
       first-queue:
-        exchangeName: dummy-exchange
+        exchangeName: my-prefix2-dummy-exchange
         originalName: target-queue
-        outputName: mirrord-sink
+        outputName: my-prefix-mirrord-sink-my-suffix
 ```
 
 ### MirrordRabbitMQSession
