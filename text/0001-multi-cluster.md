@@ -1,6 +1,6 @@
 - Feature Name: `multi_cluster`
 - Start Date: 2026-01-09
-- Last Updated: 2026-01-21
+- Last Updated: 2026-02-01
 - RFC PR: [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/issues/3)
 - RFC reference:
   - [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
@@ -144,19 +144,13 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: mirrord-primary-access
+  name: mirrord-operator-envoy
   namespace: mirrord
-  labels:
-    app.kubernetes.io/name: mirrord-operator
-    app.kubernetes.io/component: multi-cluster
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: mirrord-primary-access
-  labels:
-    app.kubernetes.io/name: mirrord-operator
-    app.kubernetes.io/component: multi-cluster
+  name: mirrord-operator-envoy
 rules:
   # Session CRD management
   - apiGroups: ["mirrord.metalbear.co"]
@@ -194,24 +188,21 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: mirrord-primary-access
-  labels:
-    app.kubernetes.io/name: mirrord-operator
-    app.kubernetes.io/component: multi-cluster
+  name: mirrord-operator-envoy
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: mirrord-primary-access
+  name: mirrord-operator-envoy
 subjects:
   - kind: ServiceAccount
-    name: mirrord-primary-access
+    name: mirrord-operator-envoy
     namespace: mirrord
 ```
 
 After creating the ServiceAccount, generate an initial token:
 
 ```bash
-kubectl create token mirrord-primary-access -n mirrord --duration=24h
+kubectl create token mirrord-operator-envoy -n mirrord --duration=24h
 ```
 
 This initial token is only needed for the first setup. Once the operator starts, it automatically refreshes tokens using the TokenRequest API before they expire, matching the original token's lifetime.
@@ -257,7 +248,7 @@ operator:
 
 ### Manual Secret Creation
 
-Alternatively, you can create cluster secrets manually. Secrets must be labeled with `mirrord.metalbear.co/remote-cluster=true` for the operator to discover them.
+Alternatively, you can create cluster secrets manually. Secrets must be labeled with `mirrord.metalbear.co/cluster-credentials=true` for the operator to discover them.
 
 For Bearer Token authentication:
 
@@ -268,7 +259,7 @@ metadata:
   name: cluster-us-east-1
   namespace: mirrord
   labels:
-    mirrord.metalbear.co/remote-cluster: "true"
+    operator.metalbear.co/remote-cluster-credentials: "true"
 type: Opaque
 stringData:
   server: "https://api.us-east-1.example.com:6443"
@@ -285,7 +276,7 @@ metadata:
   name: cluster-eu-west-1
   namespace: mirrord
   labels:
-    mirrord.metalbear.co/remote-cluster: "true"
+    operator.metalbear.co/remote-cluster-credentials: "true"
 type: Opaque
 stringData:
   server: "https://api.eu-west-1.example.com:6443"
@@ -318,19 +309,6 @@ spec:
     name: Oaks of Rogalin`s Enterprise License
     organization: Oaks of Rogalin
     subscription_id: 2c8d96be-c3bf-458c-9d35-a0642c2c2a77
-  multi_cluster:
-    clusterName: mirrord-primary
-    clusters:
-    - authenticationMethod: token
-      name: remote-2
-      secret: mirrord-cluster-remote-2
-      url: https://mirrord-remote-2:8443
-    - authenticationMethod: token
-      name: remote-1
-      secret: mirrord-cluster-remote-1
-      url: https://mirrord-remote-1:8443
-    defaultCluster: remote-1
-    enabled: true
   operator_version: 3.137.0
   protocol_version: 1.25.0
   supported_features:
@@ -342,24 +320,8 @@ spec:
   - BypassCiCertificateVerification
   - SqsQueueSplitting
   - SqsQueueSplittingDirect
+  - MultiClusterPrimary
 status:
-  connected_clusters:
-  - connected:
-      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
-      operator_version: 3.137.0
-    lastCheck: "2026-01-27T09:22:55.824115967+00:00"
-    name: remote-1
-  - connected:
-      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
-      operator_version: 3.137.0
-    lastCheck: "2026-01-27T09:22:55.766848498+00:00"
-    name: remote-2
-  copy_targets: []
-  sessions: []
-  statistics:
-    dau: 0
-    mau: 0
-Connected clusters status:
   connected_clusters:
   - connected:
       license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
@@ -545,33 +507,65 @@ The Primary operator also sends low-level WebSocket ping frames to each remote o
 
 ## Database Branching in Multi-Cluster
 
-### Create Once, Use Everywhere
+In single-cluster mode, this is straightforward: the CLI creates a branch CRD, the operator creates a temporary database, and the developer's application connects to it. In multi-cluster mode, this becomes more complex because the database can live on a different cluster than where the developer connects.
 
-We create database branches ONLY on the Default cluster. The Primary operator's Envoy handles this during session initialization. Before creating any child sessions, it connects to the Default cluster and creates the necessary `PgBranchDatabase` or `MysqlBranchDatabase` CRDs there.
+### How Database Branching Works in Single-Cluster
 
-Once the branches are created, we get back the branch names - for example, `branch_abc123`. These names are stored in the parent `MirrordMultiClusterSession` CRD's spec, in fields like `pg_branch_database_names` and `mysql_branch_database_names`.
+In single-cluster mirrord, the CLI has direct access to the Kubernetes cluster where the database runs. When a developer configures database branching in their `mirrord.json` file, the CLI creates a CRD such as `PgBranchDatabase` for PostgreSQL or `MysqlBranchDatabase` for MySQL etc... The operator watches for these CRDs and responds by creating the branch. It spins up a temporary database pod and updates the CRD's status to indicate the branch is ready. The CLI waits for this status change before proceeding. Once the branch is ready, the operator knows to intercept environment variable requests from the application and modify database connection strings to point to the branch instead of the production database.
 
-### Why Store Branch Names in the Parent?
+### The Multi-Cluster Challenge
 
-We store them in the parent because the parent is the authoritative record of the entire multi-cluster session. If we need to know what branches were created, we look at the parent. This also makes cleanup easier - when the parent session is deleted, we know exactly which branches need to be cleaned up.
+In multi-cluster mode, the developer's CLI connects to the Primary cluster, but the actual database typically runs on the Default cluster. The Primary cluster can be a management-only cluster that orchestrates sessions but doesn't host application workloads or databases. This creates a fundamental problem: the CLI cannot directly create branch CRDs on the Default cluster because the developer only has access to the Primary cluster.
 
-### Passing Branch Names to the Child Session
+### Configuration-Based Controller Deployment
 
-When we create the child `MirrordClusterSession` in the Default cluster, we include the branch names in that child's spec. This is crucial.
+Branching controllers only run on clusters that have databases. The CLI creates branch CRDs on the Primary cluster, and how they are processed depends on the cluster configuration.
 
-The child session's operator sees these branch names and stores them in what we call `SessionEphemeralState`. This is per-session data that the agent uses during its lifetime.
+If Primary is the Default cluster (meaning databases are on Primary), the branching controllers run locally on Primary and process the CRDs directly. The CLI creates CRDs, Primary's branching controllers create the actual database branches, and everything happens on one cluster just like single-cluster mode.
 
-When the agent receives a `GetEnvVarsRequest` from the application (asking for environment variables), it doesn't just return the pod's actual environment. It checks the ephemeral state for branch overrides. If there's a database branch configured, it modifies `DATABASE_URL` to point to the branch instead of the original database.
+If Primary is not the Default cluster (meaning databases are on a different cluster), the branching controllers do not run on Primary. Instead, a synchronization controller on Primary mirrors the CRDs to the Default cluster, where the actual branching controllers run and create the database branches.
 
-### The Flow in Detail
+The decision of which controllers to run is made at startup time based on configuration. When the operator starts, it loads the multi-cluster configuration and compares `cluster_name` (this cluster's name) with `default_cluster` (where databases live):
 
-Let's say the app reads `DATABASE_URL` which normally points to `postgres://db.prod:5432/mydb`.
+- **Single-cluster mode**: Branching controllers run and handle everything locally. No sync controller is needed.
+- **Multi-cluster, Primary == Default**: Branching controllers run on Primary since it has the databases. The `DbBranchSyncController` does not run.
+- **Multi-cluster, Primary != Default**: Branching controllers do not run on Primary. Instead, the `DbBranchSyncController` runs to sync CRDs to the Default cluster where the actual branching controllers handle database creation.
 
-The app calls `os.Getenv("DATABASE_URL")`. The mirrord layer intercepts this and sends a `GetEnvVarsRequest` to the operator. Because this is a stateful operation, the MultiClusterRouter sends it ONLY to the Default cluster.
+### The Database Branch Sync Controller
 
-The Default cluster's agent receives the request. It reads the pod's actual environment and sees `DATABASE_URL=postgres://db.prod:5432/mydb`. But the agent also has the branch name from SessionEphemeralState. It modifies the response to `DATABASE_URL=postgres://db.prod:5432/branch_abc123`.
+When Primary is not the Default cluster, the Primary cluster runs a controller called `DbBranchSyncController`. This controller watches for branch CRDs on Primary and synchronizes them to the Default cluster. The controller supports PostgreSQL, MySQL, and MongoDB branches.
 
-The app receives this modified URL and connects to the branch, not production.
+When the controller sees a new branch CRD on the Primary cluster, it creates a copy of that CRD on the Default cluster. The Default cluster's branching controller (which runs only on Default) processes this CRD and creates the actual database branch.
+
+The synchronization is bidirectional for status. Once the Default cluster's operator creates the branch and updates the CRD's status to indicate readiness, the sync controller copies that status back to the Primary cluster's CRD. This allows the CLI, which is watching the Primary cluster's CRD, to know when the branch is ready even though the actual creation happened on a remote cluster.
+
+### CLI
+
+From the CLI's perspective, multi-cluster database branching is identical to single-cluster. The CLI creates branch CRDs on the cluster it has access to and waits for the status to become Ready or Failed. After creating the CRDs, the CLI enters a waiting loop. It watches the CRD status and waits for either a "Ready" or "Failed" phase. The waiting has a configurable timeout. If the branch doesn't become ready within this timeout, the CLI fails.
+
+### Storing Branch Names in Session CRDs
+
+Once the branches are ready, the CLI passes the branch names to the Primary operator via connection parameters. The Primary operator then stores these names so that child sessions on the Default cluster know which branches to use. We store the branch names in two places: the parent `MirrordMultiClusterSession` CRD and the child `MirrordClusterSession` CRD for the Default cluster.
+
+The parent CRD has fields called `pgBranchNames`, `mysqlBranchNames`, and `mongodbBranchNames`. These store the names of all branches created for the session. Having these names in the parent serves as a record of what was created and simplifies cleanup when the session ends. When the Primary operator creates the child session (which is just the original `MirrordClusterSession`) on the Default cluster, it includes the branch names in that child's specification.
+
+### Environment Variable Interception
+
+In multi-cluster mode, this request is handled by the `MultiClusterRouter`. Because reading environment variables is a stateful operation (we want consistent answers regardless of which cluster handles the request), the router sends this request only to the Default cluster. This is the same cluster where the database branch was provisioned and where the session has the branch configuration in its ephemeral state.
+
+The Default cluster's operator receives the request and handles it with branch awareness. It reads the actual environment variables from the target pod, which might include something like `DATABASE_URL=postgres://db.prod:5432/mydb`. Before returning this to the application, the operator checks if there are any branch overrides configured for this session. If the session has a PostgreSQL branch named `branch_abc123`, the operator modifies the response to return `DATABASE_URL=postgres://db.prod:5432/branch_abc123` instead.
+
+The application receives this modified connection string and connects to the branch database, completely unaware that anything special happened. From the application's perspective, it simply read an environment variable and got a database URL. The fact that this URL points to a temporary branch rather than the production database is invisible to the application code.
+
+### Branch Lifecycle and Cleanup
+
+Database branches have a time-to-live (TTL) that controls how long they exist. In a typical configuration, a branch might have a TTL of 30 minutes, meaning it will be automatically deleted 30 minutes after the session that created it ends.
+
+While the session is active, the branch's TTL is continually extended. The branching controller watches for active sessions and extends the TTL as long as the session is alive. This prevents branches from expiring while a developer is still using them.
+
+When the session ends (either because the developer's application exited or because of a disconnection), the TTL extension stops. The branch continues to exist for its remaining TTL, giving the developer time to reconnect if needed. Once the TTL expires, the Default cluster's branching controller deletes the branch and cleans up any associated resources.
+
+In multi-cluster mode, we also need to handle cleanup of the Primary cluster's CRD. The `DbBranchSyncController` handles this through bidirectional deletion synchronization. If the Default cluster deletes a branch CRD (due to TTL expiration), the sync controller detects this and deletes the corresponding CRD on the Primary cluster. Similarly, if someone deletes the Primary cluster's CRD, the sync controller deletes the copy on the Default cluster. This ensures that both clusters stay consistent and that orphaned CRDs don't accumulate.
 
 ---
 
