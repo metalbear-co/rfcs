@@ -1,9 +1,9 @@
 - Feature Name: `github_pr_verification`
 - Start Date: 2026-02-12
 - Last Updated: 2026-02-12
-- RFC PR: [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+- RFC PR: [metalbear-co/rfcs#9](https://github.com/metalbear-co/rfcs/pull/9)
 - RFC reference:
-  - [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+  - [metalbear-co/rfcs#9](https://github.com/metalbear-co/rfcs/pull/9)
 
 ## Summary
 [summary]: #summary
@@ -92,6 +92,7 @@ If the same developer runs multiple sessions against the same PR, subsequent ses
 - **Jira integration:** Independent. Both can fire on session end simultaneously. A session can produce both a Jira time-tracking webhook and a GitHub PR comment.
 - **CI sessions:** CI-triggered sessions include additional metadata (`ci_info.provider`, `ci_info.pipeline`, `ci_info.triggered_by`). The PR comment can display this to distinguish CI-driven verification from manual developer sessions.
 - **Copy target / isolated testing:** Sessions using `copy_target` work the same way — the comment will indicate that an isolated copy was used rather than the live target.
+- **Admin dashboard:** The admin dashboard (served via the license server) already displays session history and utilization data. PR verification events would complement this — the dashboard shows aggregate session metrics, while the GitHub comment provides per-PR visibility. In a future iteration, verification history could be surfaced in the dashboard as well (see [Future possibilities](#future-possibilities)).
 
 ## Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -385,5 +386,7 @@ All of these tools demonstrate that PR-level visibility drives organic adoption 
 - **Session comparison.** Compare the current session against previous sessions for the same target and show regressions (e.g., "latency increased 3x on `/api/checkout`").
 
 - **GitLab and Bitbucket support.** The same pattern applies to other Git hosting platforms. The `github.rs` module could be generalized to a `git_hosting.rs` module with provider-specific implementations.
+
+- **Admin dashboard integration.** Surface PR verification history in the admin dashboard (license-server based). Show which PRs have been verified, by whom, and when — giving team leads a centralized view alongside existing session utilization metrics.
 
 - **Automatic session triggering.** Instead of waiting for developers to manually run mirrord, a webhook could trigger a mirrord session automatically when a PR is opened or updated, running a predefined test suite against the target deployment.
