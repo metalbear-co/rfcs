@@ -1,6 +1,6 @@
 - Feature Name: dashboard_backend
 - Start Date: 2026-02-02
-- Last Updated: 2026-02-04
+- Last Updated: 2026-02-12
 - RFC PR: [metalbear-co/rfcs#8](https://github.com/metalbear-co/rfcs/pull/8)
 - RFC reference:
   - [Linear COR-1135](https://linear.app/metalbear/issue/COR-1135/admin-dashboard-wiring-backend-to-ui-part-1-all-time-metrics-section)
@@ -45,10 +45,9 @@ helm upgrade mirrord-operator metalbear/mirrord-operator \
 ### All-Time Metrics Section
 
 **Cluster & Version Info:**
-- **Connected cluster name** - Shows which Kubernetes cluster the admin is currently viewing, according to context in `mirror.json`
-- **Operator version + last update** - Shows the installed operator version and when it was last updated
-- **Tier** - Shows the customer's subscription tier (e.g., Enterprise). Dashboard is supported for Ent. only
-- **mirrord version installed** - Shows the version of mirrord operator / helm chart currently installed in the cluster
+- **Connected cluster name** - Shows which Kubernetes cluster the admin is currently viewing
+- **Operator version** - Shows the installed mirrord operator version and helm chart version
+- **Tier** - Shows the customer's subscription tier. Defaults to `"Unknown"` if the license extension is not found
 - **Check for updates button** - Redirects the admin to the charts CHANGELOG in a new tab
 
 **Usage Metrics:**
@@ -85,12 +84,14 @@ helm upgrade mirrord-operator metalbear/mirrord-operator \
 
 ### API Endpoints
 
-The license-server exposes dashboard data over internal cluster HTTP. No additional authentication is needed — both services run in the same namespace, and access control is handled at the ingress/port-forward level via K8s RBAC.
+The license-server exposes dashboard data over internal cluster HTTP. No additional authentication is needed between dashboard and license-server — both services run in the same namespace, and access control is handled at the ingress/port-forward level via K8s RBAC. The dashboard nginx proxy injects the `x-license-key` header for backend authentication.
 
 ```
-GET /api/v1/dashboard/utilization?from=<datetime>&to=<datetime>
-  Response: UtilizationReport
+GET /api/v1/reports/usage?format=json&from=<datetime>&to=<datetime>
+  Response: UsageReportJson
 ```
+
+The `?format=json` parameter was added to the existing usage report endpoint (which already supports `debug` and `xlsx` formats), avoiding a new route.
 
 ## Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -102,7 +103,7 @@ GET /api/v1/dashboard/utilization?from=<datetime>&to=<datetime>
 ### Components
 
 **License-server (SQLite DB)**
-- Stores all usage metrics, session history, and license data in SQLite
+- Stores all usage metrics, session history, and license data in SQLite (PostgreSQL migration planned for a future iteration — see [Future possibilities](#future-possibilities))
 - Receives data from the operator over an air-gapped internal connection
 - Exposes a REST API over internal cluster HTTP for the dashboard to consume
 
@@ -152,52 +153,57 @@ pub struct RecordClientCertificate {
 
 ### Frontend Data Model
 
+All API response fields use `camelCase` serialization via `#[serde(rename_all = "camelCase")]`.
+
 ```typescript
-interface UtilizationReport {
+interface UsageReportJson {
   generalMetrics: {
-    totalLicenses: number;
-    usedMachines: number;
+    totalLicenses: number | null;
+    tier: string;
+    activeUsers: number;
     reportPeriod: { from: string; to: string };
-    currentConcurrentSessions: number;
-    maxConcurrentSessions: number;
-    developmentTimeSaved: number;
-    totalSessionTime: number;
+    operatorVersion: string | null;
+    lastOperatorEvent: string | null;
+  };
+  allTimeMetrics: {
+    totalSessionCount: number;
+    totalSessionTimeSeconds: number;
+    totalCiSessionCount: number;
   };
   ciMetrics: {
     currentRunningSessions: number;
-    maxConcurrentCISessions: number;
-    totalCISessions: number;
-    avgCISessionDuration: number;
+    maxConcurrentCiSessions: number;
+    totalCiSessions: number;
+    avgCiSessionDurationSeconds: number | null;
   };
   userMetrics: UserMetric[];
 }
 ```
 
-### Gap Analysis
+All-time metrics are separated into their own field to avoid mixing range-scoped and lifetime data.
 
-| Frontend Needs | Operator Has | Work Required |
-|----------------|--------------|---------------|
-| totalLicenses | acquired_licenses (easy add) | Minor |
-| usedMachines | unique_machine_ids | None |
-| currentConcurrentSessions | Not available | **License-server work** |
-| maxConcurrentSessions | Not available | **License-server work** |
-| developmentTimeSaved | Calculated | Transform only |
-| totalSessionTime | total_session_time_in_days | Unit conversion |
-| CI metrics separation | Not separated | **License-server work** |
+### Implementation Status
 
-### Files to Create/Modify
+The backend and frontend are implemented across two PRs:
 
-**operator repo (new dashboard service):**
-- Add dashboard React app under `operator/dashboard/`
-- Add Helm chart templates for dashboard deployment, service, and ingress
+- **[operator#1261](https://github.com/metalbear-co/operator/pull/1261)** — Adds `?format=json` to the existing usage report endpoint, `UsageReportJson` response type, all-time metrics, CI metrics separation, error handling with proper status codes
+- **[operator#1262](https://github.com/metalbear-co/operator/pull/1262)** — Dashboard React frontend with nginx reverse proxy to license-server
+
+### Files Created/Modified
+
+**operator/dashboard/** (new):
+- React app with nginx reverse proxy configuration
+- `nginx.conf.template` — proxies `/api/` to license-server, injects `x-license-key` header
 - Dockerfile for the dashboard container
 
 **license-server:**
-- Add SQLite schema for usage data persistence
-- Add dashboard API routes (`/api/v1/dashboard/*`)
+- `state/reports.rs` — `get_usage_report_json()` query with all-time metrics, CI separation, user metrics
+- `error.rs` — JSON error responses with proper HTTP status codes and `std::error::Report` formatting
 
-**operator:**
-- Modify data reporting to persist to license-server SQLite instead of (or in addition to) existing flow
+**metalbear-api:**
+- `types/src/dashboard.rs` — `UsageReportJson`, `GeneralMetrics`, `AllTimeMetrics`, `CiMetrics`, `UserMetric` types
+- `types/src/lib.rs` — `ApiUsageReportFormat` extended with `Json` variant
+- `routes/reports.rs` — JSON format match arm in usage report handler
 
 ## Drawbacks
 [drawbacks]: #drawbacks
@@ -218,8 +224,9 @@ interface UtilizationReport {
 - Data stays in the customer's cluster (privacy, compliance)
 - No dependency on MetalBear cloud for dashboard functionality
 - Works in air-gapped environments
-- SQLite is simple, zero-config, and sufficient for per-cluster usage data
+- SQLite is simple, zero-config, and sufficient for the initial iteration
 - License-server already exists and has the trust relationship with the operator
+- PostgreSQL migration is planned for a future iteration to support admin-managed backup policies and better scalability
 
 ### Alternatives Considered
 
@@ -246,20 +253,19 @@ interface UtilizationReport {
 ## Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-1. **SQLite schema** - Exact schema design for usage data tables
-2. **Historical data retention** - How far back should usage data be queryable? SQLite size limits?
-3. **CI session identification** - How to reliably distinguish CI from human users?
-4. **Time saved calculation** - What multiplier/formula for "development time saved"?
-5. **Ingress TLS** - Should we provide cert-manager integration out of the box?
-6. **RBAC** - Should dashboard access be gated by Kubernetes RBAC beyond port-forward/ingress access?
+1. **Historical data retention** - How far back should usage data be queryable? Current implementation returns all data with no retention limits.
+2. **Time saved calculation** - The ROI calculator lets users set their own estimated time-saved-per-session values. The formula and defaults may need PM input.
+3. **Ingress TLS** - Should we provide cert-manager integration out of the box?
+4. **RBAC** - Should dashboard access be gated by Kubernetes RBAC beyond port-forward/ingress access?
 
 ## Future possibilities
 [future-possibilities]: #future-possibilities
 
-1. **Multi-cluster view** - Aggregate dashboards across clusters via MetalBear cloud
-2. **IDE Integration** - Launch dashboard from VS Code/IntelliJ extension
-3. **Alerts** - Notify admins when license utilization exceeds threshold
-4. **Cost attribution** - Break down usage by team/department
-5. **Trend analysis** - Week-over-week, month-over-month comparisons
-6. **Custom reports** - Scheduled email reports to stakeholders
-7. **API access** - Allow customers to query usage data programmatically
+1. **PostgreSQL migration** - Migrate from SQLite to PostgreSQL to support admin-managed backup/disaster recovery policies and better scalability at high session volumes (per @aviramha's recommendation)
+2. **Multi-cluster view** - Aggregate dashboards across clusters. Note: the license server may already be shared across multiple operators in different clusters, which would provide cross-cluster aggregation (needs confirmation — see PR discussion)
+3. **IDE Integration** - Launch dashboard from VS Code/IntelliJ extension
+4. **Alerts** - Notify admins when license utilization exceeds threshold
+5. **Cost attribution** - Break down usage by team/department
+6. **Trend analysis** - Week-over-week, month-over-month comparisons
+7. **Custom reports** - Scheduled email reports to stakeholders
+8. **API access** - Allow customers to query usage data programmatically
