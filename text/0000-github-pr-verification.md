@@ -8,7 +8,7 @@
 ## Summary
 [summary]: #summary
 
-Add the ability for the mirrord operator to automatically post a verification comment on a GitHub pull request when a mirrord session targeting that PR's branch completes. The comment includes session metadata (target, namespace, user, duration) and, for steal-mode sessions, a traffic summary showing which HTTP endpoints were hit, how many times, and sample request/response bodies. This creates visible proof of what was actually tested against a real environment, directly within the PR conversation.
+Add the ability for the mirrord operator to automatically post a verification comment on a GitHub pull request when a mirrord session targeting that PR's branch completes. The comment includes session metadata (target, namespace, user, duration) and a traffic summary showing which HTTP endpoints were hit, how many times, and sample request/response bodies. Steal mode provides full request+response detail; mirror mode provides request-only detail. This creates visible proof of what was actually tested against a real environment, directly within the PR conversation.
 
 ## Motivation
 [motivation]: #motivation
@@ -244,7 +244,10 @@ The comment body is rendered from a format function that takes the session spec,
 
 ### Traffic summary capture (agent-side)
 
-When the GitHub verification feature is enabled and the session uses **steal mode**, the agent accumulates HTTP traffic metadata in-memory during the session. Mirror mode does not support traffic summaries because the agent does not see responses (they go directly back to the original pod).
+When the GitHub verification feature is enabled, the agent accumulates HTTP traffic metadata in-memory during the session. Both steal and mirror modes are supported, with different levels of detail:
+
+- **Steal mode (full summary):** The agent proxies traffic, so it sees both requests and responses. The traffic summary includes method, path, status code, response size, and request/response body samples.
+- **Mirror mode (request-only summary):** The agent copies incoming traffic but never sees responses (they go directly from the original pod back to the client). The traffic summary includes method, path, request body samples, and request count — but status code, response body, and response size are unavailable and shown as `—` in the comment.
 
 #### What is captured
 
@@ -418,9 +421,10 @@ For a standard developer session with traffic summary:
 ```
 
 The traffic section is omitted when:
-- The session used mirror mode (agent does not see responses)
 - The agent predates traffic capture support (backwards compatibility)
 - Traffic summary is disabled via Helm configuration
+
+In mirror mode, the traffic table omits response columns (status code, response body, response size) since the agent does not see responses. The table still shows method, path, request count, and request body samples — providing visibility into what was tested even without response data.
 
 For a CI-triggered session, additional fields are included:
 
