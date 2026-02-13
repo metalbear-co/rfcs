@@ -1,6 +1,6 @@
 - Feature Name: `github_pr_verification`
 - Start Date: 2026-02-12
-- Last Updated: 2026-02-12
+- Last Updated: 2026-02-13
 - RFC PR: [metalbear-co/rfcs#9](https://github.com/metalbear-co/rfcs/pull/9)
 - RFC reference:
   - [metalbear-co/rfcs#9](https://github.com/metalbear-co/rfcs/pull/9)
@@ -8,7 +8,7 @@
 ## Summary
 [summary]: #summary
 
-Add the ability for the mirrord operator to automatically post a verification comment on a GitHub pull request when a mirrord session targeting that PR's branch completes. This creates visible proof that code was tested against a real environment, directly within the PR conversation.
+Add the ability for the mirrord operator to automatically post a verification comment on a GitHub pull request when a mirrord session targeting that PR's branch completes. The comment includes session metadata (target, namespace, user, duration) and, for steal-mode sessions, a traffic summary showing which HTTP endpoints were hit, how many times, and sample request/response bodies. This creates visible proof of what was actually tested against a real environment, directly within the PR conversation.
 
 ## Motivation
 [motivation]: #motivation
@@ -69,7 +69,7 @@ Developers use mirrord exactly as they do today. The only new behavior is that t
 When a session ends, the operator:
 
 1. Looks up the open PR matching the session's branch name
-2. Posts a formatted comment on the PR
+2. Posts (or updates) a formatted comment on the PR with session metadata and traffic summary
 
 The comment looks like this:
 
@@ -81,11 +81,20 @@ The comment looks like this:
 > | **Namespace** | `staging` |
 > | **User** | `han` |
 > | **Duration** | 4m 32s |
-> | **Branch** | `han/fix-checkout-flow` |
+>
+> #### Traffic summary
+>
+> | Method | Path | Status | Count |
+> |--------|------|--------|-------|
+> | GET | `/api/checkout` | 200 | 12 |
+> | POST | `/api/checkout` | 201 | 3 |
+> | POST | `/api/checkout` | 400 | 1 |
+>
+> *Expand each endpoint below for sample request/response bodies.*
 >
 > *Tested with [mirrord](https://mirrord.dev)*
 
-If the same developer runs multiple sessions against the same PR, subsequent sessions update the existing comment (or post a new one — see [Unresolved questions](#unresolved-questions)).
+If the same developer runs multiple sessions against the same PR, subsequent sessions **overwrite** the existing comment with the latest session's data. The rationale: the last session represents the developer's final testing state.
 
 ### Interaction with existing features
 
@@ -101,16 +110,24 @@ If the same developer runs multiple sessions against the same PR, subsequent ses
 
 ```
 Developer machine                    Customer's K8s cluster
-┌──────────┐                        ┌─────────────────────────┐
-│ mirrord   │───session + git info──►│ mirrord operator        │
-│ CLI/IDE   │                        │                         │
-└──────────┘                        │  Session ends:          │
-                                     │  ├─ Telemetry (existing)│
-                                     │  ├─ Metrics (existing)  │
-                                     │  ├─ Jira webhook (exist)│
-                                     │  └─ GitHub comment (NEW)│
-                                     │         │                │
-                                     └─────────┼────────────────┘
+┌──────────┐                        ┌──────────────────────────────────┐
+│ mirrord   │───session + git info──►│ mirrord operator                 │
+│ CLI/IDE   │                        │                                  │
+└──────────┘                        │  mirrord agent (in target pod):  │
+                                     │  ├─ Intercepts HTTP traffic      │
+                                     │  ├─ Accumulates traffic summary  │
+                                     │  │   in memory (steal mode only) │
+                                     │  └─ Sends summary on session end │
+                                     │         │                        │
+                                     │  Session ends:                   │
+                                     │  ├─ Telemetry (existing)         │
+                                     │  ├─ Metrics (existing)           │
+                                     │  ├─ Jira webhook (existing)      │
+                                     │  └─ GitHub comment (NEW)         │
+                                     │    ├─ Session metadata            │
+                                     │    └─ Traffic summary + bodies    │
+                                     │         │                        │
+                                     └─────────┼────────────────────────┘
                                                │
                                                ▼
                                      GitHub API (customer's
@@ -171,13 +188,18 @@ operator:
     enabled: false
     tokenSecret: ""
     apiUrl: "https://api.github.com"
+    trafficSummary:
+      enabled: true
+      includeBodies: true          # include request/response body samples
+      maxBodySize: 1024            # max bytes per body sample (truncated beyond this)
+      maxSamplesPerEndpoint: 3     # keep latest N samples per method+path+status
 ```
 
 The token secret is mounted as a volume at `/github/token` and read at startup, following the same pattern as the license secret.
 
 ### New module: `operator/session/src/github.rs`
 
-A new module (~150 lines) with three responsibilities:
+A new module (~250 lines) with three responsibilities:
 
 **1. `GitHubClient` struct**
 
@@ -204,7 +226,7 @@ This returns PRs whose head branch matches. If multiple PRs exist for the same b
 **3. Comment posting**
 
 ```rust
-async fn post_verification_comment(
+async fn post_or_update_verification_comment(
     &self,
     owner: &str,
     repo: &str,
@@ -213,12 +235,76 @@ async fn post_verification_comment(
 ) -> Result<()>
 ```
 
-Uses:
-```
-POST /repos/{owner}/{repo}/issues/{pr_number}/comments
+This method:
+1. Lists existing comments on the PR, searching for one containing the `<!-- mirrord-verification -->` marker
+2. If found, updates the existing comment via `PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}`
+3. If not found, creates a new comment via `POST /repos/{owner}/{repo}/issues/{pr_number}/comments`
+
+The comment body is rendered from a format function that takes the session spec, duration, and optional traffic summary as input.
+
+### Traffic summary capture (agent-side)
+
+When the GitHub verification feature is enabled and the session uses **steal mode**, the agent accumulates HTTP traffic metadata in-memory during the session. Mirror mode does not support traffic summaries because the agent does not see responses (they go directly back to the original pod).
+
+#### What is captured
+
+For each HTTP request/response pair intercepted via steal, the agent records:
+
+- HTTP method (GET, POST, etc.)
+- Request path (from URI)
+- Response status code
+- `Content-Type` and `Content-Length` headers
+- Request and response body samples (bounded by `maxBodySize`, default 1KB)
+
+#### In-memory accumulator
+
+The agent maintains a bounded `HashMap` keyed by `(method, path, status_code)`:
+
+```rust
+struct TrafficSample {
+    count: u64,
+    content_type: Option<String>,
+    avg_response_size: u64,
+    /// Ring buffer of the latest N request/response body pairs.
+    body_samples: VecDeque<BodySample>,
+}
+
+struct BodySample {
+    request_body: Option<String>,   // truncated to max_body_size
+    response_body: Option<String>,  // truncated to max_body_size
+}
+
+/// Keyed by (method, path, status_code).
+type TrafficAccumulator = HashMap<(String, String, u16), TrafficSample>;
 ```
 
-The comment body is rendered from a format function that takes the session spec and duration as input.
+Memory is bounded:
+- Body samples capped at `maxBodySize` (default 1KB) per body × 2 (request + response) × `maxSamplesPerEndpoint` (default 3) = ~6KB per unique endpoint
+- A typical session with 30 unique endpoints uses ~180KB total
+- A hard cap of 100 unique endpoints prevents unbounded growth from high-cardinality paths (e.g., `/users/1`, `/users/2`, ...). Entries beyond the cap are counted but bodies are not sampled.
+- Binary bodies (detected via `Content-Type`) are stored as `[binary, {size} bytes]` rather than raw bytes.
+
+#### Data flow on session close
+
+When the session ends, the accumulated traffic summary is serialized and sent to the operator alongside the existing session metadata. This extends the session-close protocol message:
+
+```rust
+pub struct SessionTrafficSummary {
+    pub entries: Vec<TrafficSummaryEntry>,
+}
+
+pub struct TrafficSummaryEntry {
+    pub method: String,
+    pub path: String,
+    pub status_code: u16,
+    pub count: u64,
+    pub content_type: Option<String>,
+    pub avg_response_size: u64,
+    pub body_samples: Vec<BodySample>,
+}
+```
+
+The field is `Option<SessionTrafficSummary>` for backwards compatibility — old agents without traffic capture send `None`, and the operator omits the traffic section from the comment.
 
 ### Hook point in `BaseController`
 
@@ -237,9 +323,10 @@ if let Some(github) = &self.github_client {
         let github = github.clone();
         let git_info = git_info.clone();
         let session = session.clone();
+        let traffic_summary = session.spec.traffic_summary.clone();
         tokio::spawn(async move {
             if let Err(e) = github.post_session_verification(
-                &git_info, &session, duration
+                &git_info, &session, duration, traffic_summary.as_ref()
             ).await {
                 tracing::warn!(%e, "Failed to post GitHub PR comment");
             }
@@ -274,9 +361,12 @@ For a fine-grained PAT, these are scoped to specific repositories. For a classic
 
 ### Comment format
 
-The comment is a markdown table. For a standard developer session:
+The comment includes a session summary table and, when available, a traffic summary with request/response body samples. The operator maintains a **single comment per PR**, identified by a hidden HTML marker (`<!-- mirrord-verification -->`). Each new session **overwrites** the previous comment content with the latest session's data.
+
+For a standard developer session with traffic summary:
 
 ```markdown
+<!-- mirrord-verification -->
 ### mirrord verified
 
 | | |
@@ -286,12 +376,56 @@ The comment is a markdown table. For a standard developer session:
 | **User** | `han` |
 | **Duration** | 4m 32s |
 
+#### Traffic summary
+
+| Method | Path | Status | Count | Content-Type | Avg Response |
+|--------|------|--------|-------|--------------|-------------|
+| GET | `/api/users` | 200 | 47 | application/json | 1.2 KB |
+| POST | `/api/users` | 201 | 3 | application/json | 256 B |
+| POST | `/api/users` | 400 | 2 | application/json | 128 B |
+
+<details>
+<summary><b>POST /api/users → 201</b> (latest sample)</summary>
+
+**Request:**
+​```json
+{"name": "test-user", "email": "test@example.com", "role": "viewer"}
+​```
+
+**Response:**
+​```json
+{"id": 42, "name": "test-user", "email": "test@example.com", "created_at": "2026-02-13T16:41:00Z"}
+​```
+
+</details>
+
+<details>
+<summary><b>POST /api/users → 400</b> (latest sample)</summary>
+
+**Request:**
+​```json
+{"name": "", "email": "invalid"}
+​```
+
+**Response:**
+​```json
+{"error": "validation_failed", "details": ["name is required", "email format invalid"]}
+​```
+
+</details>
+
 *Tested with [mirrord](https://mirrord.dev)*
 ```
+
+The traffic section is omitted when:
+- The session used mirror mode (agent does not see responses)
+- The agent predates traffic capture support (backwards compatibility)
+- Traffic summary is disabled via Helm configuration
 
 For a CI-triggered session, additional fields are included:
 
 ```markdown
+<!-- mirrord-verification -->
 ### mirrord verified (CI)
 
 | | |
@@ -301,6 +435,9 @@ For a CI-triggered session, additional fields are included:
 | **Pipeline** | `e2e-tests` |
 | **Triggered by** | `push` |
 | **Duration** | 12m 08s |
+
+#### Traffic summary
+...
 
 *Tested with [mirrord](https://mirrord.dev)*
 ```
@@ -334,7 +471,7 @@ Three alternatives were considered:
 - One credential in one place (K8s secret) covers all developers and all repos
 - No per-repo or per-developer configuration
 - Session data never leaves the customer's infrastructure
-- It follows an established pattern in the codebase (~250 lines of new code)
+- It follows an established pattern in the codebase (~550 lines of new code: ~250 for the operator GitHub module, ~200 for the agent traffic accumulator, ~50 for protocol types, ~50 for comment formatting)
 
 ### Why a PAT and not a GitHub App?
 
@@ -364,7 +501,7 @@ All of these tools demonstrate that PR-level visibility drives organic adoption 
 ## Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- **Comment deduplication strategy.** When a developer runs multiple sessions against the same PR, should we: (a) update the existing comment with the latest session, (b) append sessions to a single comment, or (c) post separate comments? Option (a) keeps the PR clean but loses history. Option (b) could make the comment very long. Option (c) risks noise. Leaning toward (a) — find and update the existing mirrord comment if one exists.
+- **~~Comment deduplication strategy.~~** Resolved: the operator maintains a single comment per PR (identified by `<!-- mirrord-verification -->` marker) and overwrites it with the latest session's data. The rationale is that the last session represents the developer's final testing state — if something was broken, they'd keep testing until it works. History of previous sessions is not preserved in the comment.
 
 - **Multi-repo sessions.** If a developer's branch exists in a fork rather than the main repo, the `owner/repo` derived from the remote may not match where the PR is open. Need to decide if we should search across forks or require the remote to match exactly.
 
@@ -381,7 +518,9 @@ All of these tools demonstrate that PR-level visibility drives organic adoption 
 
 - **GitHub App registration.** Provide a MetalBear-registered GitHub App on the GitHub Marketplace that customers can install for branded `mirrord[bot]` identity. The operator would use the App's installation token instead of a PAT. The API calls remain identical.
 
-- **Traffic summary in comments.** If the mirrord layer/agent captures HTTP request metadata (method, path, status code, latency), this could be included in the comment to show what was actually tested. This would make the verification comment significantly more valuable.
+- **Latency tracking in traffic summary.** In steal mode, the agent could measure round-trip latency (time between request received and response sent) and include p50/p99 latency per endpoint in the traffic summary table. This is not included in the initial implementation because: (a) mirror mode cannot measure latency (agent doesn't see responses), creating an inconsistent experience, and (b) accurate latency measurement in the agent requires careful instrumentation to avoid measuring agent overhead rather than actual service latency. This can be added as a follow-up without protocol changes — the `TrafficSummaryEntry` struct can be extended with optional latency fields.
+
+- **Path normalization.** Automatically collapse high-cardinality paths (e.g., `/api/users/123` → `/api/users/:id`) to reduce the number of unique entries in the traffic table. The initial implementation uses raw paths with a hard cap on unique entries. A future iteration could use heuristics (numeric segments, UUID segments) or allow user-configured path patterns.
 
 - **Session comparison.** Compare the current session against previous sessions for the same target and show regressions (e.g., "latency increased 3x on `/api/checkout`").
 
