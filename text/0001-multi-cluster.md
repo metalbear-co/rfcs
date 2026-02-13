@@ -1,20 +1,30 @@
 - Feature Name: `multi_cluster`
 - Start Date: 2026-01-09
 - Last Updated: 2026-02-09
-- RFC PR: [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/issues/3)
-- RFC reference:
-  - [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
+- RFC PR: [metalbear-co/rfcs#0001]([metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
 
 ## Summary
 
 Enable developers to run mirrord against pods in any Kubernetes cluster they have access to, without switching their local kube context. Workflows that span across multiple clusters become available to use via mirrord.
 
----
+## Motivation
 
-## Demo Videos
+### The Problem
+
+Today mirrord only intercepts traffic within the active cluster. In HA or multi-cluster mesh environments, there is no guarantee where requests are routed. The current workaround is to run two separate sessions for two clusters and attach the debugger to the desired one. This is frustrating and unreliable.
+
+### Use Cases
+
+**Multi-region traffic testing**: A developer wants to test their local service against traffic from pods running in us-east-1, eu-west-1, and ap-southeast-1 clusters simultaneously.
+
+**Centralized access**: An organization's security policy requires developers to connect through a central management cluster that has credentials to reach workload clusters. The developer's machine cannot directly reach workload clusters.
+
+## Guide-level explanation
+
+### Demo Videos
 
 <details>
-<summary><strong> Demo 1: mirrord Multi-Cluster for Kubernetes: Traffic Stealing (Primary + Remote)</strong></summary>
+<summary><strong>Demo 1: mirrord Multi-Cluster for Kubernetes: Traffic Stealing (Primary + Remote)</strong></summary>
 
 <p><iframe src="https://youtu.be/d7D1d-B0_vI?si=mPqfFAe2v-bwda9b" width="100%" height="400" allowfullscreen></iframe></p>
 
@@ -48,35 +58,17 @@ Enable developers to run mirrord against pods in any Kubernetes cluster they hav
 
 </details>
 
----
-
-## Motivation
-
-### The Problem
-
-Today mirrord only intercepts traffic within the active cluster. In HA or multi-cluster mesh environments, there is no guarantee where requests are routed. The current workaround is to run two separate sessions for two clusters and attach the debugger to the desired one. This is frustrating and unreliable.
-
-### Use Cases
-
-**Multi-region traffic testing**: A developer wants to test their local service against traffic from pods running in us-east-1, eu-west-1, and ap-southeast-1 clusters simultaneously.
-
-**Centralized access**: An organization's security policy requires developers to connect through a central management cluster that has credentials to reach workload clusters. The developer's machine cannot directly reach workload clusters.
-
----
-
-## Solution Overview
+### Solution Overview
 
 The design is built on the existing mirrord operator. Each operator supports both single-cluster and multi-cluster sessions. A private interface allows one cluster to coordinate sessions across others.
 
 For multi-cluster sessions, a "primary" cluster drives sessions in remote clusters using their local operators over this private interface.
 
----
-
-## Understanding different Cluster Roles
+### Understanding Cluster Roles
 
 When setting up multi-cluster mirrord, each cluster takes on one or more roles. Understanding these roles is fundamental to understanding how the system works.
 
-### The Primary Cluster
+#### The Primary Cluster
 
 The Primary cluster is where the user connects if he wants to use multi cluster. When a developer runs `mirrord exec`, their CLI talks to the Primary cluster's operator. This is the "entry point" for all multi-cluster operations.
 
@@ -84,13 +76,13 @@ The Primary cluster runs a component we call the **Envoy**. The Envoy is an orch
 
 In single-cluster mirrord, there is no Envoy. The operator directly manages the session and agent. In multi-cluster, we need this extra layer because something has to coordinate multiple operators across multiple clusters.
 
-### Workload Clusters
+#### Workload Clusters
 
 Workload clusters are where your actual application pods run. These clusters have agents that intercept traffic, read files, capture environment variables, and do all the things mirrord normally does.
 
 In single-cluster mirrord, the one cluster you connect to is the workload cluster. In multi-cluster, you define which clusters have workloads.
 
-### The Default Cluster
+#### The Default Cluster
 
 Some operations in mirrord are "stateful" - meaning they need to return consistent data. For example:
 
@@ -103,7 +95,7 @@ The Default cluster is the single cluster we designate to handle all these state
 
 In single-cluster mirrord, you don't need to think about this - there's only one cluster, so all operations go there. In multi-cluster, we need to explicitly choose one cluster to be the "source of truth" for stateful operations.
 
-### Management-Only Mode
+#### Management-Only Mode
 
 Sometimes we want the Primary cluster to ONLY orchestrate, without running any workloads itself. This is called "Management-Only" mode.
 
@@ -113,13 +105,51 @@ In this case, we set `PRIMARY_MANAGEMENT_ONLY=true`. This means that we want onl
 
 Important: If Primary is Management-Only, you MUST set a different cluster as Default. Because Management-Only means "no resources here", but Default means "stateful operations happen here". You can't have stateful operations on a cluster with no resources.
 
----
+### Developer Experience
 
-## Installation Steps
+From a developer's perspective, multi-cluster mirrord is completely transparent. Developers do not need to know which cluster is primary or which is the default. They use mirrord exactly the same way as single-cluster.
+
+#### How Developers Use It
+
+The workflow is identical to single-cluster:
+
+1. **Authenticate with the Primary cluster** - The developer's local machine is bound to it through their kubeconfig.
+
+2. **Run mirrord** - Execute `mirrord exec ./myapp` as usual.
+
+3. **The operator handles the rest** - Based on the operator's configuration, it determines whether to use single-cluster or multi-cluster mode.
+
+The CLI automatically detects multi-cluster from the operator's configuration and behaves accordingly. No special flags or configuration are needed from the developer.
+
+#### What Developers Get
+
+With multi-cluster enabled, developers benefit from:
+
+- **Incoming traffic from all clusters** - Traffic mirroring and stealing work across all workload clusters. If a request arrives at any cluster, the developer's local app receives it.
+
+- **Consistent environment** - Environment variables, files, and database connections all come from one source (the Default cluster), ensuring predictable behavior.
+
+- **Database branching** - Branches are created once in the Default cluster and used consistently, regardless of which cluster handles traffic.
+
+- **Single session** - No need to manage multiple sessions or switch contexts. The complexity is hidden behind one session ID.
+
+#### Configuration
+
+The developer's mirrord configuration file does not need any multi-cluster-specific settings:
+
+```json
+{
+  "target": "deployment/myapp"
+}
+```
+
+The operator determines single-cluster or multi-cluster mode based on its installation configuration, not the developer's config file. This keeps the developer experience simple and consistent.
+
+### Installation
 
 This section covers how to do the initial setup. The setup involves selecting a primary cluster, installing the operator with multi-cluster enabled, and configuring access to all remote clusters.
 
-### Authentication Methods
+#### Authentication Methods
 
 Each remote cluster must specify an `authType` that determines how the primary operator authenticates to it. This field is **required** — the Helm chart validates it at install time and fails if missing or not one of the supported values. There are three authentication methods:
 
@@ -129,11 +159,11 @@ Each remote cluster must specify an `authType` that determines how the primary o
 
 3. **mTLS** (`authType: mtls`) — For clusters that require client certificate authentication. You provide `tlsCrt` and `tlsKey` in the cluster Secret. Certificates are NOT auto-refreshed.
 
-### Remote Cluster Setup
+#### Remote Cluster Setup
 
 Each remote cluster needs the mirrord operator installed with `multiClusterMember` enabled. This automatically creates the ServiceAccount, ClusterRole, and ClusterRoleBinding needed for the primary operator to manage sessions on that cluster.
 
-#### Bearer Token / mTLS Clusters
+##### Bearer Token / mTLS Clusters
 
 Install the operator on the remote cluster:
 
@@ -149,13 +179,13 @@ kubectl create token mirrord-operator-envoy -n mirrord --duration=24h
 
 This initial token is only needed for the first setup. Once the primary operator starts, it automatically refreshes tokens using the TokenRequest API before they expire.
 
-#### EKS IAM Clusters
+##### EKS IAM Clusters
 
 EKS IAM auth lets the primary operator authenticate to remote EKS clusters using its IAM role instead of ServiceAccount tokens. No Secrets to manage — the operator generates short-lived tokens from its IAM identity.
 
 Setup has two parts: **AWS** (IAM/EKS configuration) and **Operator** (Helm values).
 
-##### AWS
+###### AWS
 
 **1. Associate an OIDC Identity Provider with the primary cluster**
 
@@ -213,7 +243,7 @@ aws eks describe-cluster --name <PRIMARY_CLUSTER_NAME> --region <REGION> \
 
 > **Note:** The role doesn't need any IAM policies (no `iam:*`, `s3:*`, etc.). All permissions come from Kubernetes RBAC via the Access Entry. The trust policy only controls *who can assume the role*.
 
-##### Operator
+###### Operator
 
 **Remote clusters** — install with the IAM group binding:
 
@@ -234,7 +264,7 @@ sa:
 
 This annotates the operator's ServiceAccount with `eks.amazonaws.com/role-arn`, which tells the EKS pod identity webhook to inject AWS credentials into the pod. The same IAM role is used for all EKS IAM remote clusters — each remote cluster maps that role via its own Access Entry (step 2 above).
 
-### RBAC — How Permissions Work
+#### RBAC — How Permissions Work
 
 When the primary operator connects to a remote cluster, it needs permissions to do things there (list targets, create sessions, check health, etc.). These permissions are set up on each remote cluster using Kubernetes RBAC.
 
@@ -255,7 +285,7 @@ So in practice:
 - **Bearer token / mTLS remote**: `multiClusterMember=true`
 - **EKS IAM remote**: `multiClusterMember=true` + `multiClusterMemberIamGroup=mirrord-operator-envoy`
 
-### Primary Cluster Helm Configuration
+#### Primary Cluster Helm Configuration
 
 Install the operator on the primary cluster with multi-cluster configuration. Each remote cluster requires an `authType` field. You can either:
 
@@ -311,7 +341,7 @@ sa:
 
 > **Note:** The cluster key names in the `clusters` map should match the real cluster names. For EKS clusters this is especially important — the operator uses the key as the EKS cluster name when signing IAM tokens. EKS IAM clusters don't need a `bearerToken` (the operator generates tokens from its IAM role).
 
-### Where Data Is Stored
+#### Where Data Is Stored
 
 When you provide cluster configuration in the Helm values, the chart splits it into two places:
 
@@ -320,7 +350,7 @@ When you provide cluster configuration in the Helm values, the chart splits it i
 
 For EKS IAM clusters, no Secret is created — everything is in the ConfigMap since authentication is through IAM.
 
-### Manual Secret Creation
+#### Manual Secret Creation
 
 Alternatively, you can create the Secret manually outside of Helm. The Secret must be labeled with `operator.metalbear.co/remote-cluster-credentials=true` and named `mirrord-cluster-<cluster-name>`. The cluster configuration (server, authType, etc.) still needs to be provided via Helm values or the `clusters-config.yaml` ConfigMap.
 
@@ -357,13 +387,13 @@ stringData:
 
 Note: EKS IAM clusters do NOT need a Secret — they authenticate using the operator's IAM role and only need the cluster configuration in the ConfigMap.
 
-### Verify the connection succeeded
+#### Verify the Connection
 
 ```sh
 kubectl --context {PRIMARY_CLUSTER} get mirrordoperators operator -o yaml
 ```
 
-You need to have something similar, that will show you the clusters that are available and their status. If they are successfuly connected you will see `license_fingerprint` and `operator_version`, if not there will be an error field there.
+You need to have something similar, that will show you the clusters that are available and their status. If they are successfully connected you will see `license_fingerprint` and `operator_version`, if not there will be an error field there.
 
 ```yaml
 apiVersion: operator.metalbear.co/v1
@@ -412,7 +442,7 @@ status:
     mau: 0
 ```
 
-### Token Refresh
+#### Token Refresh
 
 Token refresh behavior depends on the authentication method:
 
@@ -436,57 +466,15 @@ You only need to generate tokens once during initial setup. The operator handles
 **mTLS** (`authType: mtls`):
 Certificates are NOT auto-refreshed. You are responsible for rotating the client certificate and key in the cluster Secret before they expire.
 
----
+## Reference-level explanation
 
-## Developer Experience
-
-From a developer's perspective, multi-cluster mirrord is completely transparent. Developers do not need to know which cluster is primary or which is the default. They use mirrord exactly the same way as single-cluster.
-
-### How Developers Use It
-
-The workflow is identical to single-cluster:
-
-1. **Authenticate with the Primary cluster** - The developer's local machine is bound to it through their kubeconfig.
-
-2. **Run mirrord** - Execute `mirrord exec ./myapp` as usual.
-
-3. **The operator handles the rest** - Based on the operator's configuration, it determines whether to use single-cluster or multi-cluster mode.
-
-The CLI automatically detects multi-cluster from the operator's configuration and behaves accordingly. No special flags or configuration are needed from the developer.
-
-### What Developers Get
-
-With multi-cluster enabled, developers benefit from:
-
-- **Incoming traffic from all clusters** - Traffic mirroring and stealing work across all workload clusters. If a request arrives at any cluster, the developer's local app receives it.
-
-- **Consistent environment** - Environment variables, files, and database connections all come from one source (the Default cluster), ensuring predictable behavior.
-
-- **Database branching** - Branches are created once in the Default cluster and used consistently, regardless of which cluster handles traffic.
-
-- **Single session** - No need to manage multiple sessions or switch contexts. The complexity is hidden behind one session ID.
-
-### Configuration
-
-The developer's mirrord configuration file does not need any multi-cluster-specific settings:
-
-```json
-{
-  "target": "deployment/myapp"
-}
-```
-
-The operator determines single-cluster or multi-cluster mode based on its installation configuration, not the developer's config file. This keeps the developer experience simple and consistent.
-
----
-
-## The Parent-Child Session Model
+### The Parent-Child Session Model
 
 In single-cluster mirrord, we have a Custom Resource (CR) called `MirrordClusterSession`. This represents a single mirrord session with a single agent in a single cluster. When the CLI connects, the operator creates this CR, spawns an agent, and the session is active.
 
 In multi-cluster, we need something more. We introduce a new CR called `MirrordMultiClusterSession`. This is like a "parent" session that coordinates multiple "child" sessions.
 
-### Why Do We Need a Parent Session?
+#### Why Do We Need a Parent Session?
 
 The CLI expects to interact with ONE session. It doesn't want to manage multiple session IDs, multiple WebSocket connections, or worry about which cluster does what. From the CLI's perspective, it's just one mirrord session.
 
@@ -496,43 +484,39 @@ The parent `MirrordMultiClusterSession` presents one session ID to the CLI, whil
 
 This is different from single-cluster where one `MirrordClusterSession` is enough. In multi-cluster, the parent session acts as a coordinator of multiple child sessions, each of which looks like a normal single-cluster session to its respective operator.
 
-### The Naming Convention
+#### The Naming Convention
 
 Child sessions follow a simple naming pattern. If the parent session is called `mc-4dbe55ab68bba16c`, then the child sessions are named by appending the cluster name: `mc-4dbe55ab68bba16c-remote-1` for the remote-1 cluster, `mc-4dbe55ab68bba16c-remote-2` for remote-2, and so on.
 
 This naming makes it easy to identify which parent a child belongs to, and makes cleanup straightforward since we can find all children by their prefix.
 
----
-
-## The MultiClusterSessionManager
+### The MultiClusterSessionManager
 
 The `MultiClusterSessionManager` is the controller that manages `MirrordMultiClusterSession` resources. It lives in the Primary cluster's operator and is responsible for the entire lifecycle of multi-cluster sessions.
 
 In single-cluster mirrord, session management is handled by the `BaseController`. The `MultiClusterSessionManager` follows similar patterns but adds the complexity of coordinating across clusters.
 
-### The Reconciliation Loop
+#### The Reconciliation Loop
 
 The controller runs a "reconciliation" function whenever something changes. This function looks at the current state of a session and decides what to do next.
 
 The session goes through several phases. It starts as "Initializing" when just created - this is when we need to create child sessions in all workload clusters and potentially create database branches. It moves to "Pending" once we've started creating child sessions but not all are ready yet. It becomes "Ready" when all child sessions are active. It can become "Failed" if something goes wrong, or "Terminating" when being deleted.
 
-### CR and In-Memory State
+#### CR and In-Memory State
 
 We maintain session state in two places: the `MirrordMultiClusterSession` CR and an in-memory `DashMap`. The CR is our source of truth - it survives operator restarts and is visible via kubectl. The in-memory map is a performance cache that avoids slow Kubernetes API calls when routing WebSocket messages. Every time the controller reconciles a session, it syncs the in-memory map from the CR, ensuring they stay consistent. When cleaning up, we always read from the CR status (not memory) because if the operator restarted, the memory would be empty but the CR still knows which child sessions exist.
 
----
-
-## The MultiClusterRouter
+### The MultiClusterRouter
 
 The MultiClusterRouter is one of the most important components in multi-cluster mirrord. It's what makes multi-cluster feel like single-cluster to the CLI and intproxy.
 
-### What It Does
+#### What It Does
 
 In single-cluster mirrord, the operator has a component called `AgentRouter`. The AgentRouter manages communication between the CLI/intproxy and the agent. It receives messages from the client, forwards them to the agent, and sends responses back. It presents an interface called `AgentConnection` which has a sender channel (to send messages to the agent) and a receiver channel (to receive messages from the agent).
 
 The MultiClusterRouter does the same thing, but for multiple agents across multiple clusters. It presents the same `AgentConnection` interface, so the rest of the operator code doesn't need to know it's dealing with multi-cluster. This is intentional as we want to reuse as much existing code as possible.
 
-### How It Routes Messages
+#### How It Routes Messages
 
 When the router receives a message from the client, it needs to decide where to send it. This decision is based on the type of operation.
 
@@ -564,41 +548,37 @@ pub fn is_outgoing_traffic(msg: &ClientMessage) -> bool {
 
 Both stateful operations and outgoing traffic go to the Default cluster only. Outgoing traffic (TCP/UDP) is routed to one cluster to prevent duplicate responses — all clusters share the same external services, so one agent can handle all outgoing requests. Everything else (traffic mirroring/stealing, control messages) is broadcast to all workload clusters.
 
-### Merging Responses
+#### Merging Responses
 
 Messages come back from multiple agents. The router merges all these responses into a single stream that goes back to the client. The client doesn't know responses are coming from multiple sources - it just sees a stream of messages like it would in single-cluster.
 
-### Comparison with Single-Cluster
+#### Comparison with Single-Cluster
 
 In single-cluster, the `AgentRouter` talks to one agent. In multi-cluster, the `MultiClusterRouter` talks to multiple operators (which each have their own agent). But both present the same `AgentConnection` interface. This means the `LayerHandler` and other components that use `AgentConnection` work unchanged in multi-cluster.
 
----
-
-## Connection Health and Ping-Pong
+### Connection Health and Ping-Pong
 
 Each operator needs to know if the connection to its agent is still alive. It does this by sending `Ping` messages every few seconds. The agent responds with `Pong`. If the operator doesn't receive a pong for 60 seconds, it assumes something is wrong and terminates the agent.
 
-### The Problem in Multi-Cluster
+#### The Problem in Multi-Cluster
 
 In multi-cluster, there are multiple operators (one per cluster), each with its own agent. The CLI sends ping messages, and the Primary operator's router decides where to send them.
 
 If pings only go to one cluster (the Default/Primary cluster), the other clusters never receive any pings. Their operators wait, receive nothing for 60 seconds, and then kill their agents. This is why remote agents were disappearing after exactly 60 seconds.
 
-### The Solution
+#### The Solution
 
 Ping messages are broadcast to ALL clusters. Every cluster receives the ping, every agent responds with pong, and every operator knows its connection is alive. The CLI receives multiple pong responses (one per cluster), but that's fine - it just means all clusters are healthy.
 
-### WebSocket Keep-Alive
+#### WebSocket Keep-Alive
 
 The Primary operator also sends low-level WebSocket ping frames to each remote operator every 30 seconds. This keeps the network connection itself alive and helps detect if a remote cluster becomes unreachable.
 
----
-
-## The Session Lifecycle
+### The Session Lifecycle
 
 Let's walk through what happens from session creation to cleanup, comparing with single-cluster where relevant.
 
-### Step-by-Step Example
+#### Step-by-Step Example
 
 Here is the full flow of a multi-cluster session from start to finish. The developer runs `mirrord exec ./myapp` targeting `deployment/myapp`, with the Primary cluster configured to orchestrate two workload clusters (`cluster-a` and `cluster-b`), where `cluster-a` is the Default cluster.
 
@@ -639,7 +619,7 @@ Here is the full flow of a multi-cluster session from start to finish. The devel
 5. For each child session, the Primary operator connects to the respective remote cluster and deletes the child `MirrordClusterSession` CR. The remote operator cleans up the agent.
 6. After all children are deleted, the finalizer is removed from the parent CR and Kubernetes completes the deletion.
 
-### CLI Creates a Session
+#### CLI Creates a Session
 
 The user runs `mirrord exec`. The CLI sends a request to the Primary operator asking to create a multi-cluster session. The request includes the target alias (like "deployment.myapp") and the mirrord configuration.
 
@@ -647,7 +627,7 @@ In single-cluster, the CLI sends a similar request, and the operator immediately
 
 In multi-cluster, the operator creates a `MirrordMultiClusterSession` CR with phase "Initializing" and returns the session ID to the CLI. The actual work happens asynchronously.
 
-### Initialization
+#### Initialization
 
 The controller sees the new CR and starts the reconciliation process. For an "Initializing" session, it spawns a background task to do the actual work.
 
@@ -657,19 +637,19 @@ The controller creates child sessions in each workload cluster. For each cluster
 
 We then wait for each child session to become ready, meaning its agent has spawned and is connected.
 
-### Parent Status Update
+#### Parent Status Update
 
 As each child session becomes ready, we update the parent CR's status. The status contains a map of all child sessions with their names, readiness, and any errors. Once all children are ready, we set the parent's phase to "Ready".
 
 In single-cluster, there's no parent status to update - the single session's status is enough.
 
-### CLI Connects via WebSocket
+#### CLI Connects via WebSocket
 
 Once the session is Ready, the CLI establishes a WebSocket connection to the Primary operator. The operator looks up the session in the in-memory map and creates a `MultiClusterRouter` to handle message routing.
 
 In single-cluster, the operator creates an `AgentRouter` instead. But both return an `AgentConnection` interface, so the code that handles the WebSocket doesn't need to know the difference.
 
-### Active Session
+#### Active Session
 
 While the session is active, the MultiClusterRouter routes messages to the appropriate clusters. Stateful operations go to the Default cluster. Traffic operations go to all workload clusters.
 
@@ -677,17 +657,17 @@ A background task periodically updates the `connectedTimestamp` in the CR. This 
 
 In single-cluster, a similar mechanism exists but uses an in-memory reference count (`UseGuard`). In multi-cluster, we use CR timestamps because they survive operator restarts and work in HA setups with multiple operator replicas.
 
-### Client Disconnects
+#### Client Disconnects
 
 When the application exits, the WebSocket closes. The heartbeat task stops updating `connectedTimestamp`.
 
-### TTL Expiration
+#### TTL Expiration
 
 The controller continues reconciling the session. On each reconciliation, it calculates how long since the last heartbeat. If more than 60 seconds have passed (the default TTL), it deletes the session CR.
 
 In single-cluster, cleanup happens when the last `UseGuard` reference is dropped. In multi-cluster, we can't rely on in-memory references because of HA and restarts, so we use TTL-based cleanup instead.
 
-### Cleanup via Finalizer
+#### Cleanup via Finalizer
 
 Deleting the CR triggers the finalizer. Kubernetes finalizers ensure cleanup code runs BEFORE the resource is actually deleted.
 
@@ -699,13 +679,11 @@ After all children are deleted, the finalizer is removed from the CR, and Kubern
 
 In single-cluster, cleanup is simpler - just delete the one session and its agent.
 
----
-
-## Database Branching in Multi-Cluster
+### Database Branching in Multi-Cluster
 
 In single-cluster mode, this is straightforward: the CLI creates a branch CR, the operator creates a temporary database, and the developer's application connects to it. In multi-cluster mode, this becomes more complex because the database can live on a different cluster than where the developer connects.
 
-### Step-by-Step Example (Primary != Default)
+#### Step-by-Step Example (Primary != Default)
 
 This is the most common multi-cluster database branching scenario. The developer connects to the Primary cluster, but the application that uses the database runs on the Default cluster (`cluster-a`). The developer has PostgreSQL branching configured in their `mirrord.json`.
 
@@ -746,15 +724,15 @@ This is the most common multi-cluster database branching scenario. The developer
 
 > **Note:** If Primary **is** the Default cluster some steps are skipped because the branching controllers run directly on Primary and process the CRs locally, just like single-cluster. The sync controller does not run.
 
-### How Database Branching Works in Single-Cluster
+#### How Database Branching Works in Single-Cluster
 
 In single-cluster mirrord, the CLI has direct access to the Kubernetes cluster where the pod it's connected to runs. When a developer configures database branching in their `mirrord.json` file, the CLI creates a CR such as `PgBranchDatabase` for PostgreSQL or `MysqlBranchDatabase` for MySQL etc... The operator watches for these CRs and responds by creating the branch. It spins up a temporary database pod and updates the CR's status to indicate the branch is ready. The CLI waits for this status change before proceeding. Once the branch is ready, the operator knows to intercept environment variable requests from the application and modify database connection strings to point to the branch instead of the production database.
 
-### The Multi-Cluster Challenge
+#### The Multi-Cluster Challenge
 
 In multi-cluster mode, the developer's CLI connects to the Primary cluster, but we don't want to create the same branch on all child clusters so instead we only do that on the Default cluster. Also the Primary cluster can be a management-only cluster that orchestrates sessions but doesn't host application workloads or resources. This creates a fundamental problem: the CLI cannot directly create branch CRs on the Default cluster because the developer only has access to the Primary cluster.
 
-### Configuration-Based Controller Deployment
+#### Configuration-Based Controller Deployment
 
 Branching controllers only run on the cluster designated to handle stateful operations (the Default cluster). The CLI creates branch CRs on the Primary cluster, and how they are processed depends on the cluster configuration.
 
@@ -768,7 +746,7 @@ The decision of which controllers to run is made at startup time based on config
 - **Multi-cluster, Primary == Default**: Branching controllers run on Primary. The `DbBranchSyncController` does not run.
 - **Multi-cluster, Primary != Default**: Branching controllers do not run on Primary. Instead, the `DbBranchSyncController` runs to sync CRs to the Default cluster where the actual branching controllers handle database creation.
 
-### The Database Branch Sync Controller
+#### The Database Branch Sync Controller
 
 When Primary is not the Default cluster, the Primary cluster runs a controller called `DbBranchSyncController`. This controller watches for branch CRs on Primary and synchronizes them to the Default cluster. The controller supports PostgreSQL, MySQL, and MongoDB branches.
 
@@ -776,23 +754,23 @@ When the controller sees a new branch CR on the Primary cluster, it creates a co
 
 The synchronization is bidirectional for status. Once the Default cluster's operator creates the branch and updates the CR's status to indicate readiness, the sync controller copies that status back to the Primary cluster's CR. This allows the CLI, which is watching the Primary cluster's CR, to know when the branch is ready even though the actual creation happened on a remote cluster.
 
-### CLI
+#### CLI
 
 From the CLI's perspective, multi-cluster database branching is identical to single-cluster. The CLI creates branch CRs on the cluster it has access to and waits for the status to become Ready or Failed. After creating the CRs, the CLI enters a waiting loop. It watches the CR status and waits for either a "Ready" or "Failed" phase. The waiting has a configurable timeout. If the branch doesn't become ready within this timeout, the CLI fails.
 
-### Passing Branch Names to Sessions
+#### Passing Branch Names to Sessions
 
 Once the branches are ready, the CLI passes the branch names to the Primary operator via `ConnectParams`, the same way it works in single-cluster. The Primary operator forwards these params when creating the child session on the Default cluster. Branch names are not stored in the session CRs — they flow through the connection parameters just like in single-cluster mode.
 
-### Environment Variable Interception
+#### Environment Variable Interception
 
 In multi-cluster mode, this request is handled by the `MultiClusterRouter`. Because reading environment variables is a stateful operation (we want consistent answers regardless of which cluster handles the request), the router sends this request only to the Default cluster. This is the same cluster where the database branch was provisioned and where the session has the branch configuration in its ephemeral state.
 
-The Default cluster's operator receives the request and handles it with branch awareness. It reads the actual environment variables from the target pod, which might include something like `DATABASE_URL=postgres://db.prod:5432/mydb`. Before returning this to the application, the operator checks if there are any branch overrides configured for this session. If the session has a PostgreSQL branch named `branch_abc123`, the operator modifies the response to return `DATABASE_URL=postgres://db.prod:5432/branch_abc123` instead.
+The Default cluster's operator receives the request and handles it with branch awareness. It reads the actual environment variables from the target pod, which might include something like `DATABASE_URL=postgres://db.prod:5432/mydb`. Before returning this to the application, the operator checks if there are any branch overrides configured for this session. If the session has a PostgreSQL branch named `postgres-test-pg-branch-5www5`, the operator modifies the response to return `DATABASE_URL=postgres://db.prod:5432/postgres-test-pg-branch-5www5` instead.
 
 The application receives this modified connection string and connects to the branch database, completely unaware that anything special happened. From the application's perspective, it simply read an environment variable and got a database URL. The fact that this URL points to a temporary branch rather than the production database is invisible to the application code.
 
-### Branch Lifecycle and Cleanup
+#### Branch Lifecycle and Cleanup
 
 Database branches have a time-to-live (TTL) that controls how long they exist. In a typical configuration, a branch might have a TTL of 30 minutes, meaning it will be automatically deleted 30 minutes after the session that created it ends.
 
@@ -802,9 +780,7 @@ When the session ends (either because the developer's application exited or beca
 
 In multi-cluster mode, we also need to handle cleanup of the Primary cluster's CR. The `DbBranchSyncController` handles this through bidirectional deletion synchronization. If the Default cluster deletes a branch CR (due to TTL expiration), the sync controller detects this and deletes the corresponding CR on the Primary cluster. Similarly, if someone deletes the Primary cluster's CR, the sync controller deletes the copy on the Default cluster. This ensures that both clusters stay consistent and that orphaned CRs don't accumulate.
 
----
-
-## SQS Queue Splitting in Multi-Cluster
+### SQS Queue Splitting in Multi-Cluster
 
 SQS queue splitting works across clusters. In single-cluster, the operator creates a temporary SQS queue, patches the target workload to consume from it, and filters messages based on the developer's configuration. In multi-cluster, the same thing happens on each workload cluster — the operator on each cluster creates its own temporary queue and patches the local workload.
 
@@ -812,18 +788,15 @@ The primary operator passes the SQS split configuration (queue IDs and message f
 
 Each workload cluster needs AWS credentials with SQS permissions to create and manage SQS queues. The operator uses the default AWS credential chain, so credentials can come from IRSA (`sa.roleArn`), the node's IAM instance profile, EKS Pod Identity, or environment variables — whatever is available in the cluster. This is independent of the multi-cluster auth type — even if the cluster uses bearer token auth for the primary operator's connection, it still needs its own AWS credentials for SQS operations.
 
----
+## Drawbacks
 
-## Summary
+- **Implementation complexity**: Multi-cluster introduces several new components (Envoy, MultiClusterRouter, MultiClusterSessionManager, DbBranchSyncController) that increase the overall system complexity and maintenance surface.
+- **Operational overhead**: Operators must be installed and maintained on every participating cluster. Authentication credentials (bearer tokens, mTLS certs, IAM roles) must be provisioned and managed.
+- **Failure domain expansion**: A networking issue between the Primary and any remote cluster can disrupt the entire multi-cluster session, whereas single-cluster sessions are self-contained.
+- **Debugging difficulty**: Troubleshooting spans multiple clusters, making it harder to diagnose issues compared to single-cluster where everything is local.
+- **Latency**: Cross-cluster communication adds latency to message routing, especially for stateful operations that must round-trip to the Default cluster.
 
-Multi-cluster mirrord adds several new components on top of single-cluster:
+## Rationale and alternatives
 
-The **Envoy** orchestrates multi-cluster sessions, running on the Primary cluster. It coordinates child sessions across multiple workload clusters.
-
-The **MirrordMultiClusterSession** is the Custom Resource that represents the parent session, tracking child sessions in each cluster. It stores configuration, branch names, and status.
-
-The **MultiClusterSessionManager** is the controller that manages parent sessions. It handles initialization, creates child sessions, and coordinates cleanup.
-
-The **MultiClusterRouter** routes messages between the client and multiple workload operators. It sends stateful operations to the Default cluster and broadcasts traffic operations to all workloads.
-
-The key insight is that we reuse as much single-cluster code as possible. The MultiClusterRouter presents the same `AgentConnection` interface as the single-cluster AgentRouter. Child `MirrordClusterSession` resources are normal sessions from each cluster's perspective. The complexity of multi-cluster is hidden in the Primary cluster's Envoy, while everything else works like single-cluster.
+- **Why a Primary-orchestrated model?** The Primary cluster acts as a single entry point, which keeps the developer experience unchanged — developers only need access to one cluster. Alternatives like a mesh-based approach (where clusters discover each other peer-to-peer) were considered but would require more complex networking setup and would expose multi-cluster complexity to the developer.
+- **What if we don't do this?** Developers working in multi-cluster environments would continue to manually manage separate mirrord sessions per cluster, which is error-prone, unreliable, and does not support cross-cluster traffic interception.
