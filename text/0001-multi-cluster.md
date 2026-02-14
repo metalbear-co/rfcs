@@ -1,7 +1,7 @@
 - Feature Name: `multi_cluster`
 - Start Date: 2026-01-09
 - Last Updated: 2026-02-09
-- RFC PR: [metalbear-co/rfcs#0001]([metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
+- RFC PR: [metalbear-co/rfcs#0001](https://github.com/metalbear-co/rfcs/pull/4)
 
 ## Summary
 
