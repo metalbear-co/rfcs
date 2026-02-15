@@ -9,7 +9,7 @@
 Add new configuration field under the root config, called "magic".
 "magic" would cover features that are enabled by default that help 99% of the users,
 but might annoy the other 1%. They are magic because they're not specific use of a feature,
-but a combination of mirrord featuers to make a use case more easy.
+but a combination of mirrord features to make a use case easier.
 
 ## Motivation
 [motivation]: #motivation
