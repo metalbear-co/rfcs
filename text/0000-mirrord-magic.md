@@ -59,6 +59,8 @@ As we add more features, we'll enable also `"magic": false` to turn off all magi
 
 Add new field under root config called `magic`. Start with `aws` magic feature. Have a very full explanation of what the magic does and how it works.
 
+"magic" bundles might change existing configurations that user edits, and one of the motivations behind having those as magic bundles is that
+we can alter the configuration in runtime, i.e if user uses `feature.env.unset` the feature would just magically append it's value to it, instead of conflicting.
 
 ## Drawbacks
 [drawbacks]: #drawbacks
