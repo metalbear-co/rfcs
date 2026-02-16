@@ -62,6 +62,8 @@ Add new field under root config called `magic`. Start with `aws` magic feature. 
 "magic" bundles might change existing configurations that user edits, and one of the motivations behind having those as magic bundles is that
 we can alter the configuration in runtime, i.e if user uses `feature.env.unset` the feature would just magically append it's value to it, instead of conflicting.
 
+"magic" shouldn't handle all unknowns or scenarios, and by nature is very specific, so conflicts should be seldom. We'd like to be in a situation where magic works 100% for 90% of our user base, where the other 10% can workaround it with disabling it.
+
 ## Drawbacks
 [drawbacks]: #drawbacks
 
