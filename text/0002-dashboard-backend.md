@@ -98,7 +98,7 @@ The `?format=json` parameter was added to the existing usage report endpoint (wh
 
 ### Architecture
 
-![Architecture Diagram](0001-dashboard-backend/0001-dashboard-backend-architecture.png)
+![Architecture Diagram](0002-dashboard-backend/0002-dashboard-backend-architecture.png)
 
 ### Components
 
