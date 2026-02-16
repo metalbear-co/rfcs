@@ -31,7 +31,23 @@ Then, for another user that does something very specific, they'd like to actuall
 ```json
 {
   "magic": {
-    "aws": "false"
+    "aws": "true"
+  }
+}
+```
+
+Would lead to
+
+
+```json
+{
+  "feature": {
+    "fs": {
+      "mapping": {"/Users/aaa/.aws": "/tmp/aws/$0"}
+    },
+    "env": {
+      "unset": ["AWS_PROFILE"]
+    }
   }
 }
 ```
