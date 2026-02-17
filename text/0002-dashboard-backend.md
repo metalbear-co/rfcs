@@ -1,6 +1,6 @@
 - Feature Name: dashboard_backend
 - Start Date: 2026-02-02
-- Last Updated: 2026-02-12
+- Last Updated: 2026-02-17
 - RFC PR: [metalbear-co/rfcs#8](https://github.com/metalbear-co/rfcs/pull/8)
 - RFC reference:
   - [Linear COR-1135](https://linear.app/metalbear/issue/COR-1135/admin-dashboard-wiring-backend-to-ui-part-1-all-time-metrics-section)
@@ -47,7 +47,7 @@ helm upgrade mirrord-operator metalbear/mirrord-operator \
 **Cluster & Version Info:**
 - **Connected cluster name** - Shows which Kubernetes cluster the admin is currently viewing
 - **Operator version** - Shows the installed mirrord operator version and helm chart version
-- **Tier** - Shows the customer's subscription tier. Defaults to `"Unknown"` if the license extension is not found
+- **Tier** - Deferred from initial release (always Enterprise for now). Will be added when the dashboard ships to other tiers
 - **Check for updates button** - Redirects the admin to the charts CHANGELOG in a new tab
 
 **Usage Metrics:**
@@ -209,7 +209,7 @@ The backend and frontend are implemented across two PRs:
 [drawbacks]: #drawbacks
 
 1. **Customer infrastructure** - Dashboard runs on customer's cluster resources
-2. **No multi-cluster aggregation** - Each cluster has its own dashboard; no cross-cluster view
+2. **Multi-cluster depends on shared license server** - Cross-cluster aggregation works when operators share a license server instance, but customers who run separate license servers per cluster won't get a unified view
 3. **Ingress setup** - Requires customer to configure ingress and DNS
 4. **Data locality** - Usage data stays in the cluster, MetalBear cannot access it for support
 5. **Enterprise-only** - Creates feature disparity between tiers
@@ -250,19 +250,26 @@ The backend and frontend are implemented across two PRs:
 - Requires customer to have DataDog and configure the integration
 - Works but adds friction for customers without existing DataDog setup
 
+## Resolved questions
+
+1. **Historical data retention** - Data is retained for 5 years. In the future, users will be able to configure retention since the data lives on their infrastructure (per @liron-sel).
+2. **Time saved calculation** - ROI calculator stays as-is. Users set their own estimated time-saved-per-session values (per @gememma, @liron-sel).
+3. **Subscription tier display** - Dropped from initial release since all dashboard customers are Enterprise. Will be added when the dashboard ships to other tiers (per @liron-sel).
+4. **Multi-cluster aggregation** - The license server is intended to be shared across operators in multiple clusters, so the dashboard already provides cross-cluster aggregation by default. Customers can also choose one license server per cluster if they prefer (confirmed by @aviramha, @Razz4780).
+5. **Auth between dashboard and license-server** - No additional auth needed. Both services run in the same namespace, access control is at ingress level (confirmed by @Razz4780).
+6. **Data backup** - Deferred to PostgreSQL migration. Admins will manage their own backup policies (per @aviramha).
+
 ## Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-1. **Historical data retention** - How far back should usage data be queryable? Current implementation returns all data with no retention limits.
-2. **Time saved calculation** - The ROI calculator lets users set their own estimated time-saved-per-session values. The formula and defaults may need PM input.
-3. **Ingress TLS** - Should we provide cert-manager integration out of the box?
-4. **RBAC** - Should dashboard access be gated by Kubernetes RBAC beyond port-forward/ingress access?
+1. **Ingress TLS** - Should we provide cert-manager integration out of the box?
+2. **RBAC** - Should dashboard access be gated by Kubernetes RBAC beyond port-forward/ingress access?
 
 ## Future possibilities
 [future-possibilities]: #future-possibilities
 
 1. **PostgreSQL migration** - Migrate from SQLite to PostgreSQL to support admin-managed backup/disaster recovery policies and better scalability at high session volumes (per @aviramha's recommendation)
-2. **Multi-cluster view** - Aggregate dashboards across clusters. Note: the license server may already be shared across multiple operators in different clusters, which would provide cross-cluster aggregation (needs confirmation — see PR discussion)
+2. **Multi-cluster view** - For customers running separate license servers per cluster, provide a unified view that aggregates across instances
 3. **IDE Integration** - Launch dashboard from VS Code/IntelliJ extension
 4. **Alerts** - Notify admins when license utilization exceeds threshold
 5. **Cost attribution** - Break down usage by team/department
