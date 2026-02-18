@@ -1,7 +1,7 @@
 - Feature Name: mirrord Magic
 - Start Date: 2026-02-13
 - Last Updated: 2026-02-13
-- RFC PR: [metalbear-co/rfcs#TBD](https://github.com/metalbear-co/rfcs/pull/TBD)
+- RFC PR: [metalbear-co/rfcs#11](https://github.com/metalbear-co/rfcs/pull/11)
 
 ## Summary
 [summary]: #summary
