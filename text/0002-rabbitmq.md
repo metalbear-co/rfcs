@@ -46,7 +46,7 @@ As far as I've seen the most basic way of usage in rabbit is having a queue as a
 
 In this graphic the idea is that some Publisher is aware of the existence of the Input Exchange only where as the Target knows of the Input Exchange and the Target Queue, as rabbit by default works on "get or create" method where when one of the Target Pods starts it may create the Target Queue and then also bind it to the Input Exchange (or maybe also create it if it's not done with Publisher beforehand)
 
-There is more to it some patters are more like RPC requests where the Publisher embeds the reply_to argument (it can be done in many ways just the reply_to is the rabbit provided way) and then is expected by the target pod to send the reply to provided queue.
+There is more to it some patterns are more like RPC requests where the Publisher embeds the reply_to argument (it can be done in many ways just the reply_to is the rabbit provided way) and then is expected by the target pod to send the reply to provided queue.
 
 ```
 ┌─────────────┐        ┌──────────────────┐        ┌───────────────────┐         ┌──────────────────┐     
@@ -320,7 +320,7 @@ One main impact on the cluster itself will be a performance one, since we are mo
 ## Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-The main though behind consuming and re-publishing the messages is the amount of control we have over the filters, it's very likely that payload filters are a thing that costumers will require since a lot of messages are simple json objects that may have the developer identifying information that is needed to create a correct filter so the messages will be routed to the correct developer.
+The main thought behind consuming and re-publishing the messages is the amount of control we have over the filters, it's very likely that payload filters are a thing that costumers will require since a lot of messages are simple json objects that may have the developer identifying information that is needed to create a correct filter so the messages will be routed to the correct developer.
 
 ## Prior art
 [prior-art]: #prior-art
