@@ -15,6 +15,7 @@
 
 - [ ] I completed the reference-level explanation
 - [ ] Approvers have reviewed the latest version of the RFC
+- [ ] All comments are addressed and/or resolved
 - [ ] I built and verified the generated Markdown book pages
 - [ ] I renamed the RFC Markdown file (and directory if any) to the next available RFC number
 
