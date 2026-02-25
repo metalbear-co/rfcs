@@ -32,26 +32,47 @@ When in doubt, discuss with the team first.
 To propose a major change:
 
   - Fork or clone the RFC repository
-  - Create a Github issue under the RFC repository
-  - Copy `0000-template.md` to `text/0000-my-feature.md` (where "my-feature" is descriptive)
-  - Fill in the RFC with care—explain motivation, design details, drawbacks, and alternatives
-  - Submit a pull request and link it the Github and Linear issue
+  - Create a GitHub issue in the RFC repository
+  - In your branch
+    - Copy `0000-template.md` to `text/0000-my-feature.md` (where "my-feature" is descriptive)
+    - For static content like images, create a directory with the RFC handle, e.g. `text/0000-my-feature/diagram.png`
+  - Fill in the RFC with care - explain motivation, design, drawbacks, and alternatives
+  - **Note**: The reference-level explanation is **optional** before developing
+  - Submit a pull request and link it to the GitHub and Linear issues
   - Assign reviewers whose comments you're seeking
   - Build consensus through discussion and iterate on feedback
-  - The team will review and decide to merge, close, or postpone
+  - Collect at least **two approvals** before implementing
+  - If not already done, fill in the reference-level explanation while developing the proposed solution
   - Before merging, rename your file to the next available RFC number in main (e.g., `0042-my-feature.md`)
-  - Once merged, the RFC is "active" and can be implemented
+    - Make sure to [build and verify](#build-and-view) the generated Markdown pages
 
 ## The RFC life-cycle
 
 Once an RFC is "active":
 
   - Authors may implement it and submit PRs to the relevant repositories
-  - Being active means the team has agreed to the approach in principle
-  - It doesn't guarantee immediate implementation or specific priority
+  - Being active means the RFC has at least guide-level explanation and at least two approvals
+  - The reference-level explanation must be completed and reviewed before merging
 
 Minor changes to active RFCs can be made via amendments. Substantial changes should be new RFCs 
 that reference the original.
+
+## Build and view
+
+Prerequisites:
+- Python3
+- mdbook: `cargo install mdbook`
+
+```bash
+
+# generate artifacts
+./generate-book.py
+
+# start the mdbook server
+mdbook serve
+
+# Go to http://localhost:3000
+```
 
 ---
 
