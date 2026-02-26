@@ -322,6 +322,10 @@ One main impact on the cluster itself will be a performance one, since we are mo
 
 The main thought behind consuming and re-publishing the messages is the amount of control we have over the filters, it's very likely that payload filters are a thing that customers will require since a lot of messages are simple json objects that may have the developer identifying information that is needed to create a correct filter so the messages will be routed to the correct developer.
 
+### Alternative: AMQP interception
+
+Because of how rabbit sends the messages to the client when connected we can perform interception on the protocol level through the agent, This will be simmilar to how we do http filtering where the agent will read the tcp connection and will selectivly send the messages either to connected client or the origianl connection on the remote. This is a bit different than regular http filters because the connection is established first to remote and then on the connection the messages are sent we will need to intercept the outgoing request by remote container, another problem with this approach is the shared `prefetch` value where we will need to either modify this value each time a new "split" is provided. The main benifits for this is speed and recovery speed and definitions, this approach does not require preconfigured configs because they can be read from the actual protocol messages because it's declerative the only thing that will require configureation might be port/addr/ip and the filters themselfs. Another benefit is that we don't need to reset the remote entierly because the queue name doesn't have to change and only the connection will need to be reset. 
+
 ## Prior art
 [prior-art]: #prior-art
 
