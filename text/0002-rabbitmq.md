@@ -224,7 +224,7 @@ The idea for the implementation is to be the single resource that is needed to b
 
 ### Expected Workflow
 
-The idea is that we have a loaded in-memory state of all the `MirrordWorkloadQueueRegistry` resources, once a session with the relevant queue-split feature is enabled the `MirrordRabbitMQSession` resource will be created with all the relevant paramagnets so each side can create the queue and bindings meaning we probably don't need to wait for the queue-split to actually start before starting the agent and continue the session since the api is mostly declarative with the queue and binding being assumed by the application that they may not exist even in normal workflow.
+The idea is that we have a loaded in-memory state of all the `MirrordWorkloadQueueRegistry` resources, once a session with the relevant queue-split feature is enabled the `MirrordRabbitMQSession` resource will be created with all the relevant parameters so each side can create the queue and bindings meaning we probably don't need to wait for the queue-split to actually start before starting the agent and continue the session since the api is mostly declarative with the queue and binding being assumed by the application that they may not exist even in normal workflow.
 
 One thing is that different with rabbit and sqs is that rabbit also includes exchange bindings as part of the declaration, we don't want to bind the original exchange to our new created queues because in most cases it will cause message duplication in some cases my break the expected flow of messages through it. Simple solution is to create a dummy exchange that will be used just for the declarative bind instead of asking the user to make it optional in their code. (the exchange will not be used for messages just for the binding and will need to have the same arguments as original one has). This logic should be optional for us because not everyone will declare the exchanges bindings in their service.
 
@@ -320,12 +320,12 @@ One main impact on the cluster itself will be a performance one, since we are mo
 ## Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-The main thought behind consuming and re-publishing the messages is the amount of control we have over the filters, it's very likely that payload filters are a thing that costumers will require since a lot of messages are simple json objects that may have the developer identifying information that is needed to create a correct filter so the messages will be routed to the correct developer.
+The main thought behind consuming and re-publishing the messages is the amount of control we have over the filters, it's very likely that payload filters are a thing that customers will require since a lot of messages are simple json objects that may have the developer identifying information that is needed to create a correct filter so the messages will be routed to the correct developer.
 
 ## Prior art
 [prior-art]: #prior-art
 
-SQS queue splitting, most complaints Iv'e heard is the existence of the `MirrordWorkloadQueueRegistry`, though I think the way to solve it is to have a util (maybe inside mirrord wizard) that can connect to the management api and provide a way to create the registry entries with automatic filling of most fields.
+SQS queue splitting, most complaints I've heard is the existence of the `MirrordWorkloadQueueRegistry`, though I think the way to solve it is to have a util (maybe inside mirrord wizard) that can connect to the management api and provide a way to create the registry entries with automatic filling of most fields.
 
 The features should be very similar.
 
