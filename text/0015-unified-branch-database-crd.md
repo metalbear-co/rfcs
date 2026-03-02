@@ -82,13 +82,36 @@ Not all modes are valid for all engines. For example, MongoDB does not support `
 
 The connection source types, status/phase types, session info, and IAM auth config all remain unchanged from the current design.
 
-### Changes across layers
+### Approach A: (keep old CRDs temporarily)
 
-- **Operator controller**: a single controller watches `BranchDatabase` resources and picks the right database-specific initializer based on `spec.dialect`. The three nearly identical implementations become one.
-- **Multi-cluster sync**: a single sync controller for `BranchDatabase` replaces the current three.
-- **CLI**: a single conversion and a single API call per command replace the database duplicates.
-- **Client**: the three database create functions merge into one that accepts the dialect as a parameter.
-- **Helm chart**: the three CRD blocks become a single `BranchDatabase` CRD block, registered when any per-database flag is enabled. Per-database flags (`operator.pgBranching`, `operator.mysqlBranching`, `operator.mongodbBranching`, `operator.mssqlBranching`) are kept so operators can control which engines are available.
+Run old and new CRDs side-by-side for some time, giving users time to upgrade CLI and operator.
+
+**Introduction release**:
+
+1. Helm chart registers the new `BranchDatabase` CRD alongside the three old ones.
+2. Operator starts controllers for both old (`PgBranchDatabase`, `MysqlBranchDatabase`, `MongodbBranchDatabase`) and new (`BranchDatabase`) CRD types.
+3. New CLI versions create only the new `BranchDatabase` CRD.
+4. Old CRDs still work - users with older CLI versions continue working.
+5. Multi-cluster sync controller watches all CRD kinds.
+
+**Later removal release**:
+
+1. Old CRD definitions are removed from the Helm chart.
+2. Old controllers and sync watchers are removed from the operator.
+
+**Pros**:
+
+- Zero downtime for users during transition.
+
+**Cons**:
+
+- Operator must maintain both old and new controller code for a few releases.
+- Multi-cluster sync complexity increases during the overlap period.
+- More testing (both ways must work).
+
+### Approach B: (remove old CRDs immediately)
+
+Single release replaces old CRDs with the new one. No overlap period.
 
 ### Switchover release
 
