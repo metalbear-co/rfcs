@@ -90,10 +90,6 @@ The connection source types, status/phase types, session info, and IAM auth conf
 - **Client**: the three database create functions merge into one that accepts the dialect as a parameter.
 - **Helm chart**: the three CRD blocks become a single `BranchDatabase` CRD block, registered when any per-database flag is enabled. Per-database flags (`operator.pgBranching`, `operator.mysqlBranching`, `operator.mongodbBranching`, `operator.mssqlBranching`) are kept so operators can control which engines are available.
 
-## Migration strategy
-
-The new CRD `BranchDatabase` is a new resource, not a version upgrade of the old ones. Approach B (immediate replacement) was chosen.
-
 ### Switchover release
 
 1. Helm chart removes the three old CRD definitions and adds the single `BranchDatabase` CRD.
