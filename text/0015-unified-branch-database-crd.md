@@ -152,5 +152,5 @@ The existing architecture works. The cost is ongoing maintenance: every new feat
 
 ## Future possibilities
 
-- **New database engines**: with the unified CRD, adding support for a new engine (CockroachDB etc.) requires only adding a new dialect variant, implementing the database-specific initializer, and adding the init container binary. No CRD schema changes, no Helm chart changes, no new controllers. MSSQL has already been added this way.
+- **New database engines**: with the unified CRD, adding support for a new engine (CockroachDB etc.) requires only adding a new dialect variant, implementing the database-specific initializer, and adding the init container binary. No CRD schema changes, no Helm chart changes, no new controllers.
 - **`dialectOptions` extensibility**: the flat approach makes it easy to add new dialect-specific fields without changing the API version. For example, MongoDB-specific replica set configuration or MySQL-specific character set defaults could be added as optional fields.
