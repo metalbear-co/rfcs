@@ -125,6 +125,15 @@ Single release replaces old CRDs with the new one. No overlap period.
 - Users can restart their mirrord session, which creates a new branch using the new CRD.
 - The upgrade window can be communicated in release notes.
 
+**Pros**:
+
+- No extra complexity - clean, simple upgrade.
+- Operator codebase immediately benefits from less duplication (no legacy code).
+
+**Cons**:
+
+- Breaking change for any active sessions at upgrade time.
+
 ## Rationale and alternatives
 
 ### Why this design
@@ -135,15 +144,11 @@ A single CRD with a `dialect` field is the natural fit for resources that share 
 
 The existing architecture works. The cost is ongoing maintenance: every new feature or bug fix in the branching flow must be applied to x number of places depending on how many database types we have, X CRD schemas, X controllers, and X sync controllers.
 
-## Resolved questions
-
-- **Naming**: `dialect` was chosen for the database kind field, with `dialectOptions` for engine-specific configuration.
-- **Helm flag naming**: per-database flags are kept (`operator.pgBranching`, `operator.mysqlBranching`, `operator.mongodbBranching`, `operator.mssqlBranching`). All flags point to the same unified `BranchDatabase` CRD. A single CRD definition is registered when any flag is enabled.
-- **Migration approach**: Approach B (immediate replacement) was chosen for simplicity.
-
 ## Unresolved questions
 
 - **Copy mode validation**: should `Schema` mode be added to MongoDB as a no-op (always valid, just does nothing extra), or should it be rejected at runtime?
+- **Naming**: `dialect` vs `engine` vs `type` for the database kind field. `dialect` is used in this RFC but `engine` may be more intuitive. and if renamed the options should probably also follow. For example, if we go with `engine` - `engineOptions`, `dialect` - `dialectOptions`, `type` - `typeOptions` etc..
+- **Helm flag naming**: `operator.dbBranching` vs keeping separate database flags that all point to the same CRD.
 
 ## Future possibilities
 
