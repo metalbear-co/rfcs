@@ -13,7 +13,7 @@ Support RabbitMQ for operator's queue splitting feature.
 ## Motivation
 [motivation]: #motivation
 
-Queue splitting is a pretty neat feature, it would be nice to do so with RabbitMQ.
+RabbitMQ Queue splitting would enable concurrency for RMQ based consumer workloads.
 
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -80,7 +80,7 @@ With the first scenario it's quite simple to do the same as we've done with SQS 
                                                       │                                 │                                    
                                                     ┌─▼────────────────┐          ┌─────┴──────────┐                         
                                                     │                  │ Rest     │                │                         
-                                                    │  Mirrord Shovel  ├─────────►│  Mirrord Sink  │◄───────────┐            
+                                                    │  mirrord Shovel  ├─────────►│  mirrord Sink  │◄───────────┐            
                                                     │                  │          │                │            │            
                                                     └──┬───────────────┘          └────────────────┘            │            
                                                        │                                                        │            
@@ -239,7 +239,7 @@ To share the same unfiltered queue for multiple sessions via the `MirrordWorkloa
                                            │ Unfiltered                                                   
 ┌───────────────────┐         ┌────────────┴─────────────┐          ┌────────────────────┐                
 │                   │ Create  │                          │ Filtered │                    │                
-│  Mirrord Session  ├────────►│  MirrordRabbitMQSession  ├─────────►│ Update Env Values  │                
+│  mirrord Session  ├────────►│  MirrordRabbitMQSession  ├─────────►│ Update Env Values  │                
 │                   │         │                          │          │    (on session)    │                
 └───────────────────┘         └────────────┬─────────────┘          └────────────────────┘                
                                            │        ┌───────────────────────────────────────────┐         
@@ -317,6 +317,8 @@ Main drawback of this solution is the fact that the operator is the one performi
 
 One main impact on the cluster itself will be a performance one, since we are moving messages through the external api we are subject to multiple "transactions" we create where we want to guarantee delivery, and the replication that can happen if the queues are defined as highly available.
 
+Currently we must have the abuility to set queue name / exchange name variable where it might be problematic since the common usage of rabbitmq queue biniding via decorators and thus it's not assured they are available to be set at runtime.
+
 ## Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
@@ -324,7 +326,15 @@ The main thought behind consuming and re-publishing the messages is the amount o
 
 ### Alternative: AMQP interception
 
-Because of how rabbit sends the messages to the client when connected we can perform interception on the protocol level through the agent, This will be simmilar to how we do http filtering where the agent will read the tcp connection and will selectivly send the messages either to connected client or the origianl connection on the remote. This is a bit different than regular http filters because the connection is established first to remote and then on the connection the messages are sent we will need to intercept the outgoing request by remote container, another problem with this approach is the shared `prefetch` value where we will need to either modify this value each time a new "split" is provided. The main benifits for this is speed and recovery speed and definitions, this approach does not require preconfigured configs because they can be read from the actual protocol messages because it's declerative the only thing that will require configureation might be port/addr/ip and the filters themselfs. Another benefit is that we don't need to reset the remote entierly because the queue name doesn't have to change and only the connection will need to be reset. 
+Because of how rabbit sends the messages to the client when connected we can perform interception on the protocol level through the agent, This will be simmilar to how we do http filtering where the agent will read the tcp connection and will selectivly send the messages either to connected client or the origianl connection on the remote. This is a bit different than regular http filters because the connection is established first to remote and then on the connection the messages are sent we will need to intercept the outgoing request by remote container, another problem with this approach is the shared `prefetch` value where we will need to either modify this value each time a new "split" is provided. The main benifits for this is speed and recovery speed and definitions, this approach does not require preconfigured configs because they can be read from the actual protocol messages because it's declerative the only thing that will require configureation might be port/addr/ip and the filters themselfs. Another benefit is that we don't need to reset the remote entierly because the queue name doesn't have to change and only the connection will need to be reset.
+
+### Alternative: Native Only
+
+It's possible for us to just take "ownership" over a "header" or other exchange types that the service binds it's queues to and just create the api calls needed to bind the new filtered queue to the managed header exchange. With this approach we don't shovel any messages but rather only perform the correct env patches and assume the application will perform the appropriate bindings (we can also create them ourselfs just to be sure) but the problem is the inflexibility of this approach where it allows only the filtering that is possible by the selected exchange type. We stll need to preform unused queue drains and the cleanup.
+
+### Alternative: Custom Exchange/Queue Plugin
+
+In the case where we can't change queue or exhcange attributes in user code but we can change the connection parameters we can leverage connection arguments to pass filters and create a custom exhange and/or queue that will take into account the connection parametrs to filter the messages as part of the custom queue logic. (if we assume that changning the queue name is always available we can use a custom exchange only).
 
 ## Prior art
 [prior-art]: #prior-art
