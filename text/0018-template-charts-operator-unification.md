@@ -92,17 +92,22 @@ The contents of `metalbear-co/charts` is a copy of `metalbear-co/operator/charts
 To minimise impact if something goes wrong:
 
 - 1. Copy the charts source code to the operator repo, within its own directory
-  - Trigger charts PR CI from the operator PR CI when files in charts dir change
+  - Trigger charts CI from the operator CI when files in charts dir change
+    - Move charts CI to the operator repo and run using the current (unreleased) operator image
   - Adjust files changed checks to account for charts/ non charts files
-- 2. Move any open PRs/issues of ours from the charts to the operator repo, leave any PRs/issues opened by the users
-- 3. In the operator repo, add a new job that will:
+  - Unify chart version for operator and license-server charts (allows for single charts changelog)
+- 2. In the operator repo, add a new job that will:
   - Push current state of charts source code to the charts repo main
   - Trigger a release there
-- 4. Adjust operator release job to also trigger job from 3.
+- 3. Move any open PRs/issues of ours from the charts to the operator repo, leave any PRs/issues opened by the users
+  - Stop new PRs from being opened
+- 4. Adjust operator release job to also trigger job from 2.
   - Operator release must finish before charts release triggered, so the charts are able to fetch operator (and if operator release fails, charts do not get released)
-  - The trigger job from 3 should run when a semver version tag is created (same as current operator release)
-- 5. Add an option to manually trigger job from 3., without operator release 
+  - The trigger job from 2. should run when a semver version tag is created (same as current operator release)
+- 5. Add an option to manually trigger job from 2., without operator release 
   - Add check to require up-to-date changelog in charts (if changelogs are not merged)
+- 6. Update the operator `release.sh` script and CONTRIBUTING.md to include all the manual charts release steps
+  - Update `release.sh` script and CONTRIBUTING.md to reflect new changelog layout
 
 
 ## Drawbacks
@@ -141,14 +146,14 @@ _Resolve before implementation_
   - How will this work during charts only releases?
   - Either: releases are always operator and charts AND changelogs can be unified
   - or releases can be charts only or both AND changelogs must stay separate
-- Would there ever be a reason for code to be pushed to the charts repo when a release is not happening?
-  - For example, if there are changes to the (public) charts README.md
-  - Can we account for/ allow/ disallow this?
-- How do we ensure that updates to the charts code that merge _after_ a release PR dont get included in code pushed to the charts repo when performing a charts-only release?
-  - ie. we only push code up to and including release commit (may require specific commit name)
-- How do we avoid charts CI failures on release PRs for the operator and charts?
-  - The charts CI will attempt to install the chart being released, which depends on the operator version being released, which doesn't exist yet
-  - It is safe to disable the charts CI on release PRs (there are no extra checks in the charts CI for release PRs)?
+- ~~Would there ever be a reason for code to be pushed to the charts repo when a release is not happening?~~
+  - ~~For example, if there are changes to the (public) charts README.md~~
+  - ~~Can we account for/ allow/ disallow this?~~
+- ~~How do we ensure that updates to the charts code that merge _after_ a release PR dont get included in code pushed to the charts repo when performing a charts-only release?~~
+  - ~~ie. we only push code up to and including release commit (may require specific commit name)~~
+- ~~How do we avoid charts CI failures on release PRs for the operator and charts?~~
+  - ~~The charts CI will attempt to install the chart being released, which depends on the operator version being released, which doesn't exist yet~~
+  - ~~It is safe to disable the charts CI on release PRs (there are no extra checks in the charts CI for release PRs)?~~
 
 ## Future possibilities
 [future-possibilities]: #future-possibilities
@@ -156,7 +161,7 @@ _Resolve before implementation_
 - Fully automate operator releases
   - Ideally, developers wouldn't have to create a release commit, wait for it to merge and create a GitHub release
   - If we could automate creation of the release commit and GitHub release with tag, we could have a manual dispatch only job to perform release
-    - Would we need a way to point to the specific commit to be released?
+    - ~~Would we need a way to point to the specific commit to be released?~~
 - Move to a monorepo: eventually, we could move all of our code into one repo
   - When considering this in the past, issues raised included reluctance to use git submodules and concerns about code that generates or manages licenses being public
 - Publish the charts changelogs to the website (if changelogs are kept separate)
