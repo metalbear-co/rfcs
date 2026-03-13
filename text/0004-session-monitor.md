@@ -1,7 +1,7 @@
 - Feature Name: session_monitor
 - Start Date: 2026-03-13
 - Last Updated: 2026-03-13
-- RFC PR: [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+- RFC PR: [metalbear-co/rfcs#20](https://github.com/metalbear-co/rfcs/pull/20)
 - RFC reference:
   - [Notion: mirrord Session Monitor Product Spec](https://www.notion.so/32215e39139481b289cacc87a9cdf257)
   - [metalbear-co/rfcs#8 (Dashboard Backend)](https://github.com/metalbear-co/rfcs/pull/8)
@@ -9,7 +9,7 @@
 ## Summary
 [summary]: #summary
 
-Add an HTTP + WebSocket server to the mirrord internal proxy (intproxy) that streams real-time session events to a browser-based Session Monitor UI. Every `mirrord exec` session gets a localhost URL where developers can observe traffic, file operations, DNS queries, environment variables, and more. The intproxy already sees all messages between the layer and agent, making it the natural place to tap into the data stream. The Session Monitor works for all users (OSS and Teams) with no operator dependency.
+Add a local session monitoring system to mirrord with two components: (1) each intproxy exposes a Unix socket at `~/.mirrord/sessions/` that streams real-time session events, and (2) a new `mirrord ui` command that discovers all active sessions via that directory, aggregates them into a single web UI served over localhost with TLS and CSRF protection. Additionally, new CLI commands (`mirrord status`, `mirrord kill`) provide non-interactive access to the same data for AI agents and scripting. The system works for all users (OSS and Teams) with no operator dependency.
 
 ## Motivation
 [motivation]: #motivation
@@ -24,255 +24,289 @@ mirrord is a "black box" to its users. When a developer runs `mirrord exec`, the
 
 4. **No growth surface** - mirrord has no UI surface where we can show the value of Teams features to OSS users. The admin dashboard only reaches paying customers who have the operator.
 
+5. **No programmatic access** - AI coding agents and scripts cannot query mirrord session state. There's no `mirrord status` or way to kill a session by ID.
+
 ### Use Cases
 
-1. **Developer debugging** - "My app isn't getting the right config. Let me check the Session Monitor to see which files are being read remotely vs locally."
+1. **Developer debugging** - "My app isn't getting the right config. Let me open `mirrord ui` to see which files are being read remotely vs locally."
 
-2. **Traffic inspection** - "I'm stealing traffic on port 8080 but nothing's arriving. Let me check if the port subscription is active and if any connections are coming in."
+2. **Multi-session overview** - "I have 3 mirrord sessions running in different terminals. Let me see them all in one place."
 
-3. **Environment debugging** - "My app is connecting to the wrong database. Let me check which env vars mirrord fetched from the remote pod."
+3. **Traffic inspection** - "I'm stealing traffic on port 8080 but nothing's arriving. Let me check if the port subscription is active."
 
-4. **DNS debugging** - "Service discovery isn't working. Let me check what DNS queries mirrord is resolving and what IPs they map to."
+4. **Environment debugging** - "My app is connecting to the wrong database. Let me check which env vars mirrord fetched."
 
-5. **Performance investigation** - "My app feels slow with mirrord. Let me check if remote file reads or DNS are adding latency."
+5. **Session management** - "I forgot to close a mirrord session in another terminal. Let me kill it from the UI or via `mirrord kill`."
 
-6. **Teams discovery (business)** - An OSS developer using the Session Monitor sees "3 other developers are targeting this service" (locked, requires Teams). They click "Start Free Trial" to unlock it.
+6. **AI agent integration** - An AI coding agent runs `mirrord status --json` to check session health, or `mirrord kill <id>` to clean up after a test run.
+
+7. **Teams discovery (business)** - An OSS developer using `mirrord ui` sees "3 other developers are targeting this service" (locked, requires Teams). They click "Start Free Trial."
 
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-### Basic Usage
+### Starting the UI
 
-When a developer runs mirrord, the Session Monitor URL is printed to stdout:
-
-```
-$ mirrord exec --target deploy/checkout -- node server.js
-⚡ Session Monitor: http://localhost:48291
-⚡ mirrord is running on target deploy/checkout-service-7b9f...
-```
-
-Opening that URL in a browser shows a real-time dashboard of the mirrord session:
-
-- **Session header**: target name, mode (steal/mirror), connection state, elapsed time
-- **Traffic panel**: TCP connections, bytes in/out, HTTP method breakdown
-- **File operations panel**: remote reads, writes, local fallbacks, errors, with file paths
-- **DNS panel**: resolved hostnames, query counts, resolved IPs
-- **Port subscriptions**: local/remote port mappings, mode per port
-- **Environment variables**: which vars were fetched remotely, their keys (values redacted by default)
-- **Outgoing connections**: external services the app connects to (host:port, connection count)
-- **Event log**: scrollable, filterable stream of everything mirrord is doing
-
-### Multi-Session Support
-
-If a developer runs multiple mirrord sessions (different terminals, different targets), each session gets its own intproxy and its own Session Monitor port. The URLs are independent:
+The Session Monitor is a separate command, not auto-launched:
 
 ```
-Terminal 1: mirrord exec --target deploy/checkout -- node server.js
-⚡ Session Monitor: http://localhost:48291
-
-Terminal 2: mirrord exec --target deploy/payments -- python app.py
-⚡ Session Monitor: http://localhost:52107
+$ mirrord ui
+🔒 Session Monitor: https://localhost:59281?token=a8f3b2c1...
+   Opening browser...
 ```
 
-If a single session forks child processes (e.g., Node.js worker threads), all child layers connect to the same intproxy and appear as sub-sessions in the same Session Monitor.
+This starts a local web server that discovers and connects to all active mirrord sessions on the machine. The URL includes a one-time token for CSRF protection.
+
+### Viewing Sessions
+
+The UI shows all active sessions in one view:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  mirrord Session Monitor          v3.165.0 (OSS)   2 sessions   │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  SESSION 1: deploy/checkout-service (steal)          ● Running   │
+│  PID 1234 · node server.js · 12m 34s · ~/projects/checkout      │
+│  Ports: :80→:3000 (steal), :8080→:8080 (steal)                  │
+│  Traffic: 147 connections, 2.3 MB in/out                         │
+│  Files: 23 remote reads, 5 writes, 2 local fallbacks            │
+│  DNS: 12 queries (8 unique hosts)                                │
+│  [View Details]  [Kill Session]                                  │
+│                                                                  │
+│  SESSION 2: deploy/payments-service (mirror)         ● Running   │
+│  PID 5678 · python app.py · 3m 12s · ~/projects/payments        │
+│  Ports: :5000→:5000 (mirror)                                     │
+│  Traffic: 42 connections, 890 KB in/out                          │
+│  [View Details]  [Kill Session]                                  │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│  📰 What's New                                                   │
+│  • v3.165.0: HTTP filter improvements for steal mode             │
+│  • v3.164.0: Go 1.23 support                                    │
+│  [Full Changelog →]                                              │
+│                                                                  │
+│  ⭐ mirrord for Teams                                            │
+│  See who's targeting your services · Session history · Control   │
+│  [Start Free Trial →]                                            │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Clicking "View Details" on a session expands it to show:
+- Real-time event log (file ops, DNS, network, errors)
+- Traffic stats breakdown (HTTP methods, status codes, latency)
+- File operations detail (paths, read/write, remote vs local)
+- DNS query log (hostname, resolved IPs, latency)
+- Port subscriptions detail
+- Environment variables fetched (keys only, values redacted by default)
+- Outgoing connections (which external services the app talks to)
+- mirrord config for this session
+
+### CLI Commands
+
+The same session data is available via CLI for scripting and AI agents:
+
+```bash
+# List all active local sessions
+$ mirrord status
+SESSION ID                            TARGET                     MODE    PID    ELAPSED
+a8f3b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c deploy/checkout-service    steal   1234   12m 34s
+c2d3e4f5-6a7b-8c9d-0e1f-2a3b4c5d6e7f deploy/payments-service    mirror  5678   3m 12s
+
+# JSON output for programmatic use
+$ mirrord status --json
+[{"session_id":"a8f3b2c1...","target":"deploy/checkout-service","mode":"steal",...}]
+
+# Kill a session by ID
+$ mirrord kill a8f3b2c1
+Session a8f3b2c1 killed.
+
+# Kill all local sessions
+$ mirrord kill --all
+Killed 2 sessions.
+```
+
+If the operator is available, `mirrord status` also shows cluster-wide sessions:
+
+```bash
+$ mirrord status --cluster
+LOCAL SESSIONS:
+  a8f3b2c1  deploy/checkout-service  steal   1234  12m 34s
+
+CLUSTER SESSIONS (requires mirrord for Teams):
+  🔒 3 other sessions active on this cluster
+  [Upgrade to see details: https://app.metalbear.com/...]
+```
 
 ### Configuration
-
-The Session Monitor is enabled by default. It can be controlled via the mirrord config:
 
 ```json
 {
   "session_monitor": {
-    "enabled": true,
-    "port": 0,
-    "open_browser": false
+    "enabled": true
   }
 }
 ```
 
-- `enabled` (default: `true`): Set to `false` to disable the Session Monitor entirely. No HTTP server is started.
-- `port` (default: `0`): Port to listen on. `0` means random available port. Set a fixed port for scripting or bookmarking.
-- `open_browser` (default: `false`): If `true`, automatically opens the Session Monitor in the default browser on session start.
+- `enabled` (default: `true`): Set to `false` to disable the Unix socket for this session. The intproxy will not create a socket file.
 
-Environment variable override: `MIRRORD_SESSION_MONITOR=false` disables it (useful in CI).
+Environment variable override: `MIRRORD_SESSION_MONITOR=false` disables the socket (useful in CI).
+
+The `mirrord ui` command has its own flags:
+
+```bash
+mirrord ui                        # Start UI, auto-open browser
+mirrord ui --no-open              # Start UI, don't open browser
+mirrord ui --port 8080            # Use specific port
+mirrord ui --sessions-dir /path   # Custom sessions directory
+```
 
 ### Interaction with Existing Features
 
-The Session Monitor is purely observational. It does not modify mirrord's behavior. Disabling it has zero effect on file ops, traffic mirroring/stealing, env fetching, DNS, or any other feature.
+The session monitoring system is purely observational for v1. It does not modify mirrord's behavior, except for the `mirrord kill` command which terminates a session's intproxy process and its associated layers.
 
-The only interaction is with the intproxy's lifecycle:
-- The intproxy already runs as a background process (reparented to init)
-- The HTTP server binds alongside the existing layer TCP listener
-- When all layers disconnect and the idle timeout expires, the HTTP server shuts down with the intproxy
+The intproxy lifecycle is extended slightly:
+- On startup, the intproxy creates a Unix socket at `~/.mirrord/sessions/<session-id>.sock`
+- On shutdown, it removes the socket file
+- If the intproxy crashes, stale socket files are cleaned up by `mirrord ui` or `mirrord status` (they detect dead sockets and remove them)
 
 ## Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
 ### Architecture Overview
 
+The system has two layers: session sockets (per-intproxy) and the UI server (standalone).
+
 ```
-                                  ┌──────────────────────────────┐
-                                  │        Browser               │
-                                  │   Session Monitor UI         │
-                                  │   (React static assets)      │
-                                  └──────────┬───────────────────┘
-                                             │ HTTP GET / (static)
-                                             │ WS /ws (events)
-                                             │ GET /api/state (snapshot)
-                                             ▼
-┌──────────────┐    TCP (bincode)    ┌──────────────────────────────┐
-│  Layer        │ ◄────────────────► │        Intproxy              │
-│  (LD_PRELOAD) │                    │                              │
-│              │                    │  ┌────────────┐              │
-│  Layer 2     │ ◄──────────────►   │  │ Monitor    │ HTTP+WS     │
-│  (forked)    │                    │  │ Server     │ :48291      │
-│              │                    │  └────────────┘              │
-└──────────────┘                    │                              │
-                                    │  ┌────────────┐              │
-                                    │  │ FilesProxy │              │
-                                    │  │ IncomingPrx│              │
-                                    │  │ OutgoingPrx│              │
-                                    │  │ SimpleProxy│              │
-                                    │  └─────┬──────┘              │
-                                    └────────┼─────────────────────┘
-                                             │ TCP (bincode)
-                                             ▼
-                                    ┌──────────────────┐
-                                    │     Agent        │
-                                    │  (K8s cluster)   │
-                                    └──────────────────┘
+┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+│ mirrord exec │   │ mirrord exec │   │ mirrord exec │
+│  session 1   │   │  session 2   │   │  session 3   │
+└──────┬───────┘   └──────┬───────┘   └──────┬───────┘
+       │                  │                  │
+       ▼                  ▼                  ▼
+┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+│  Intproxy 1  │   │  Intproxy 2  │   │  Intproxy 3  │
+│              │   │              │   │              │
+│ Unix Socket  │   │ Unix Socket  │   │ Unix Socket  │
+│ ~/.mirrord/  │   │ ~/.mirrord/  │   │ ~/.mirrord/  │
+│ sessions/    │   │ sessions/    │   │ sessions/    │
+│ <id1>.sock   │   │ <id2>.sock   │   │ <id3>.sock   │
+└──────┬───────┘   └──────┬───────┘   └──────┬───────┘
+       │                  │                  │
+       └──────────┬───────┴──────────────────┘
+                  │  (Unix socket connections)
+                  ▼
+         ┌────────────────┐
+         │  mirrord ui    │
+         │                │
+         │  Discovers all │
+         │  sockets in    │
+         │  ~/.mirrord/   │     ┌─────────────┐
+         │  sessions/     │────▶│   Browser    │
+         │                │     │ https://     │
+         │  HTTP+WS+TLS   │     │ localhost:   │
+         │  :59281        │     │ 59281?token= │
+         └────────────────┘     └─────────────┘
+
+         ┌────────────────┐
+         │ mirrord status │  (reads same sockets)
+         │ mirrord kill   │  (sends kill signal)
+         └────────────────┘
 ```
 
-### Component: MonitorServer
+### Component 1: Session Socket (in intproxy)
 
-A new component added to the intproxy, alongside the existing background tasks (FilesProxy, IncomingProxy, OutgoingProxy, SimpleProxy, PingPong).
+Each intproxy instance creates a Unix domain socket at `~/.mirrord/sessions/<session-id>.sock` on startup.
 
-**Location:** `mirrord/intproxy/src/monitor.rs` (new file)
+**Session ID**: A UUID generated by the intproxy at startup (e.g., `a8f3b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c`).
 
-**Responsibilities:**
-1. Bind an HTTP server on `localhost:<port>`
-2. Serve static frontend assets (embedded in binary or from a directory)
-3. Accept WebSocket connections at `/ws`
-4. Maintain a `MonitorState` struct that aggregates session data
-5. Receive `MonitorEvent` messages from the intproxy main loop
-6. Broadcast events to all connected WebSocket clients
+**Socket directory**: `~/.mirrord/sessions/` is created with `0700` permissions (user-only access), following the Docker socket model. This ensures only the current user can access their own sessions.
 
-### MonitorState
+**Metadata file**: Alongside each socket, a JSON metadata file is written:
+
+```
+~/.mirrord/sessions/a8f3b2c1.sock      # Unix socket
+~/.mirrord/sessions/a8f3b2c1.json      # Metadata
+```
+
+Metadata file contents:
+
+```json
+{
+  "session_id": "a8f3b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c",
+  "target": "deploy/checkout-service",
+  "mode": "steal",
+  "pid": 1234,
+  "process_name": "node",
+  "process_args": ["server.js"],
+  "working_dir": "/Users/han/projects/checkout",
+  "started_at": "2026-03-13T14:30:00Z",
+  "mirrord_version": "3.165.0",
+  "is_operator": false,
+  "config_path": "/Users/han/projects/checkout/.mirrord/mirrord.json"
+}
+```
+
+**Socket protocol**: The Unix socket speaks a simple JSON-lines protocol:
+
+```
+Client connects to socket
+  → Server sends: {"type":"hello","session_id":"a8f3b2c1...","state":{...full MonitorState...}}
+  → Server streams: {"type":"event","data":{...MonitorEvent...}}\n
+  → Server streams: {"type":"event","data":{...MonitorEvent...}}\n
+  ...
+
+Client can send commands:
+  → {"type":"kill"}\n
+  → Server sends: {"type":"ack","command":"kill"}\n
+  → Intproxy initiates graceful shutdown
+```
+
+**MonitorState** (sent on connect):
 
 ```rust
-/// Aggregated state of all sessions managed by this intproxy instance.
 pub struct MonitorState {
-    /// Per-layer session information.
-    sessions: HashMap<LayerId, SessionInfo>,
-    /// Aggregated traffic statistics.
-    traffic: TrafficStats,
-    /// File operation statistics.
-    file_ops: FileOpsStats,
-    /// DNS query log.
-    dns: DnsStats,
-    /// Port subscriptions across all layers.
-    ports: Vec<PortSubscription>,
-    /// Environment variables fetched (keys only, values redacted).
-    env_vars: Vec<EnvVarInfo>,
-    /// Outgoing connection stats.
-    outgoing: OutgoingStats,
-    /// Rolling event log (bounded ring buffer).
-    events: VecDeque<MonitorEvent>,
-    /// Session start time.
-    started_at: Instant,
-    /// Target information from config.
+    session_id: String,
     target: TargetInfo,
-    /// mirrord config (sanitized, no secrets).
-    config: SanitizedConfig,
-}
-
-pub struct SessionInfo {
-    layer_id: LayerId,
-    process: ProcessInfo,  // pid, name, cmdline
-    connected_at: Instant,
-    is_active: bool,
-}
-
-pub struct TrafficStats {
-    tcp_connections: u64,
-    bytes_in: u64,
-    bytes_out: u64,
-    http_requests: HashMap<String, u64>,  // method -> count
-    http_status_codes: HashMap<u16, u64>, // status -> count
-}
-
-pub struct FileOpsStats {
-    remote_reads: u64,
-    remote_writes: u64,
-    local_fallbacks: u64,
-    errors: u64,
-    /// Most recently accessed files (bounded).
-    recent_files: VecDeque<FileAccessRecord>,
-}
-
-pub struct FileAccessRecord {
-    path: String,
-    operation: FileOperation, // Read, Write, Stat, Unlink, etc.
-    remote: bool,
-    timestamp: Instant,
-    latency: Option<Duration>,
-}
-
-pub struct DnsStats {
-    total_queries: u64,
-    unique_hostnames: HashSet<String>,
-    recent_queries: VecDeque<DnsQueryRecord>,
-}
-
-pub struct DnsQueryRecord {
-    hostname: String,
-    resolved: Vec<String>, // IP addresses
-    timestamp: Instant,
-    latency: Option<Duration>,
-}
-
-pub struct OutgoingStats {
-    connections: HashMap<String, u64>, // "host:port" -> count
-    bytes_sent: u64,
-    bytes_received: u64,
-}
-
-pub struct EnvVarInfo {
-    key: String,
-    source: EnvVarSource, // Remote, Override, Excluded
-    // Value intentionally omitted for security
+    mode: String,
+    started_at: String,         // ISO 8601
+    mirrord_version: String,
+    is_operator: bool,
+    layers: Vec<LayerInfo>,     // connected processes
+    traffic: TrafficStats,
+    file_ops: FileOpsStats,
+    dns: DnsStats,
+    ports: Vec<PortSubscription>,
+    env_vars: Vec<EnvVarInfo>,
+    outgoing: OutgoingStats,
+    recent_events: Vec<MonitorEvent>,  // last N events
 }
 ```
 
-### MonitorEvent
-
-Events emitted by the intproxy main loop and broadcast to WebSocket clients:
+**MonitorEvent** (streamed after hello):
 
 ```rust
 #[derive(Serialize)]
 #[serde(tag = "type")]
 pub enum MonitorEvent {
-    /// A new layer connected.
-    SessionConnected {
+    LayerConnected {
         layer_id: u64,
-        process: ProcessInfoDto,
+        pid: u32,
+        process_name: String,
         timestamp: u64,
     },
-    /// A layer disconnected.
-    SessionDisconnected {
+    LayerDisconnected {
         layer_id: u64,
         timestamp: u64,
     },
-    /// File operation observed.
     FileOp {
         path: String,
-        operation: String, // "read", "write", "stat", "unlink", "mkdir", etc.
+        operation: String,  // "read", "write", "stat", "unlink", "mkdir", etc.
         remote: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         latency_ms: Option<u64>,
         timestamp: u64,
     },
-    /// DNS query resolved.
     DnsQuery {
         hostname: String,
         resolved: Vec<String>,
@@ -280,13 +314,11 @@ pub enum MonitorEvent {
         latency_ms: Option<u64>,
         timestamp: u64,
     },
-    /// Incoming TCP connection accepted.
     IncomingConnection {
         port: u16,
         source: String,
         timestamp: u64,
     },
-    /// HTTP request intercepted (incoming).
     HttpRequest {
         method: String,
         path: String,
@@ -296,39 +328,33 @@ pub enum MonitorEvent {
         latency_ms: Option<u64>,
         timestamp: u64,
     },
-    /// Outgoing connection initiated.
     OutgoingConnection {
         remote_address: String,
         port: u16,
-        protocol: String, // "tcp" or "udp"
+        protocol: String,
         timestamp: u64,
     },
-    /// Port subscription changed.
     PortSubscription {
         port: u16,
-        mode: String, // "mirror" or "steal"
-        action: String, // "subscribe" or "unsubscribe"
+        mode: String,
+        action: String,
         timestamp: u64,
     },
-    /// Environment variable fetched.
     EnvVar {
         key: String,
-        source: String, // "remote", "override", "excluded"
+        source: String,
         timestamp: u64,
     },
-    /// Process forked.
     ProcessForked {
         parent_layer_id: u64,
         child_layer_id: u64,
         timestamp: u64,
     },
-    /// Error occurred.
     Error {
         message: String,
         context: String,
         timestamp: u64,
     },
-    /// Agent log message.
     AgentLog {
         level: String,
         message: String,
@@ -337,41 +363,7 @@ pub enum MonitorEvent {
 }
 ```
 
-### Integration with Intproxy Main Loop
-
-The intproxy's `run_inner()` method (in `mirrord/intproxy/src/lib.rs`) uses a `tokio::select!` loop to poll background tasks. The MonitorServer integrates as follows:
-
-```rust
-// In IntProxy::run_inner()
-
-// Start monitor server if enabled
-let monitor = if config.session_monitor.enabled {
-    let (monitor_tx, monitor_server) = MonitorServer::new(
-        config.session_monitor.port,
-        config.target.clone(),
-        config.sanitized(),
-    ).await?;
-    // Print URL to stderr (stdout is used for intproxy address)
-    eprintln!("⚡ Session Monitor: http://localhost:{}", monitor_server.port());
-    Some((monitor_tx, monitor_server))
-} else {
-    None
-};
-
-// In the main select! loop, add a branch for monitor server:
-loop {
-    tokio::select! {
-        // ... existing branches for agent, layer, ping_pong ...
-
-        // Monitor server events (client connect/disconnect, etc.)
-        msg = monitor_server.next(), if monitor.is_some() => {
-            // Handle monitor client lifecycle
-        }
-    }
-}
-```
-
-**Event emission points** - The intproxy emits `MonitorEvent` by calling `monitor_tx.send()` at these locations:
+**Event emission points in the intproxy:**
 
 | Location | Event | Trigger |
 |----------|-------|---------|
@@ -384,185 +376,272 @@ loop {
 | `IntProxy::handle_agent_message()` | `IncomingConnection` | Agent sends `Tcp::NewConnection` |
 | `IntProxy::handle_agent_message()` | `AgentLog` | Agent sends `DaemonMessage::LogMessage` |
 | `IntProxy::handle_agent_message()` | `Error` | Agent sends error responses |
-| `IntProxy::new_layer_connected()` | `SessionConnected` | Layer sends `NewSession` |
-| `IntProxy::layer_disconnected()` | `SessionDisconnected` | Layer TCP connection closes |
+| `IntProxy::new_layer_connected()` | `LayerConnected` | Layer sends `NewSession` |
+| `IntProxy::layer_disconnected()` | `LayerDisconnected` | Layer TCP connection closes |
 | `IntProxy::handle_layer_forked()` | `ProcessForked` | Layer sends `LayerForked` |
 
-**Latency tracking** - For file ops and DNS, the intproxy records the timestamp when the request is sent to the agent, then calculates the delta when the response arrives. This requires a small `PendingRequests` map keyed by `(LayerId, MessageId)`.
+**Latency tracking**: The intproxy records timestamps when requests are sent to the agent and computes the delta when responses arrive. A `HashMap<(LayerId, MessageId), Instant>` tracks pending requests.
 
-### HTTP Server Endpoints
+**Cleanup**: On intproxy exit (normal or crash), the socket and metadata files should be removed. The intproxy registers a shutdown hook to delete both files. For crash scenarios, the `mirrord ui` and `mirrord status` commands detect stale sockets (connection refused) and clean them up.
 
-Using `axum` (already used by the license-server, consistent with the codebase):
+### Component 2: `mirrord ui` Command
+
+A new subcommand that runs a web server aggregating all local sessions.
+
+**Startup sequence:**
+
+1. Scan `~/.mirrord/sessions/` for `*.json` metadata files
+2. For each, attempt to connect to the corresponding `*.sock`
+3. Clean up stale entries (socket exists but connection refused)
+4. Generate a TLS self-signed certificate (in-memory, ephemeral)
+5. Generate a random access token
+6. Start HTTPS server on `127.0.0.1:<port>`
+7. Print URL with token: `https://localhost:59281?token=<token>`
+8. Open browser (unless `--no-open`)
+9. Watch `~/.mirrord/sessions/` directory for new/removed sockets (via `notify` crate or polling)
+10. For each connected session socket, maintain a tokio task that reads events and forwards to WebSocket clients
+
+**Security model (following Aviram's requirements):**
+
+- **Unix socket permissions**: `~/.mirrord/sessions/` has `0700`. Only the user can access their sessions. Same model as Docker's `/var/run/docker.sock`.
+- **TLS**: Self-signed certificate generated at startup. Prevents network sniffing on localhost (relevant on shared machines).
+- **CSRF token**: The URL includes `?token=<random>`. The server sets this as a cookie on first access. Subsequent requests must include the cookie. This prevents a malicious webpage from making requests to the localhost server (since it won't have the cookie).
+- **Localhost binding**: `127.0.0.1` only, never `0.0.0.0`.
+
+**HTTP endpoints:**
 
 ```
-GET /                  -> Serve index.html (static assets)
-GET /assets/*          -> Serve static JS/CSS assets
-GET /api/state         -> JSON snapshot of current MonitorState
-GET /api/config        -> Sanitized mirrord config
-WS  /ws                -> WebSocket event stream
+GET  /                     → Serve React frontend (index.html)
+GET  /assets/*             → Static JS/CSS assets
+GET  /api/sessions         → List all active sessions (JSON)
+GET  /api/sessions/:id     → Session detail + current state (JSON)
+POST /api/sessions/:id/kill → Kill session (terminates intproxy + layers)
+GET  /api/version          → mirrord version, OSS/Teams status
+GET  /api/changelog        → Latest changelog entries (fetched from GitHub releases API, cached)
+WS   /ws                   → WebSocket: aggregated events from all sessions
+WS   /ws/:id               → WebSocket: events from a specific session
 ```
 
-**WebSocket protocol:**
-- On connect: server sends a `MonitorEvent::Snapshot` with the full current `MonitorState`
-- After that: server sends individual `MonitorEvent` messages as they occur
-- Client can send `{ "type": "ping" }` to keep connection alive
-- All messages are JSON-serialized (not bincode, since this is browser-facing)
+**WebSocket protocol (browser-facing):**
 
-### Static Asset Embedding
+```
+Client connects to /ws
+  → Server sends: {"type":"sessions","data":[...list of all sessions with state...]}
+  → Server streams: {"type":"event","session_id":"a8f3b2c1","data":{...MonitorEvent...}}\n
+  → Server streams: {"type":"session_added","data":{...session metadata...}}\n
+  → Server streams: {"type":"session_removed","session_id":"a8f3b2c1"}\n
+  ...
+```
 
-The Session Monitor frontend (React app) is compiled to static assets and embedded in the mirrord CLI binary at build time using `include_dir` or `rust-embed`:
+**Static asset embedding**: The React frontend is embedded in the mirrord CLI binary using `rust-embed`. The `mirrord ui` command serves these assets. If running a development build without embedded assets, it can optionally proxy to a Vite dev server (configurable via `--dev` flag).
+
+### Component 3: CLI Commands
+
+**`mirrord status`**:
 
 ```rust
-#[derive(RustEmbed)]
-#[folder = "monitor-ui/dist/"]
-struct MonitorAssets;
+// Pseudocode
+fn mirrord_status(json: bool, cluster: bool) {
+    let sessions_dir = home_dir().join(".mirrord/sessions");
+    let sessions = discover_sessions(&sessions_dir);
+
+    if json {
+        println!("{}", serde_json::to_string(&sessions)?);
+    } else {
+        print_table(&sessions);
+    }
+
+    if cluster {
+        // If operator is available, also query cluster sessions
+        match operator_client.get_active_sessions() {
+            Ok(cluster_sessions) => print_cluster_sessions(&cluster_sessions),
+            Err(_) => println!("🔒 Cluster sessions require mirrord for Teams"),
+        }
+    }
+}
 ```
 
-**Build integration:**
-- The frontend lives in a new directory: `mirrord/monitor-ui/` (React + Vite)
-- CI builds the frontend first (`npm run build`), then the Rust binary embeds the output
-- Total embedded size: ~200-300KB gzipped (React + a few components, no heavy dependencies)
-- If the assets are missing at compile time (e.g., dev build without frontend), the monitor server still starts but returns a plaintext "Session Monitor UI not built" message at `GET /`
+**`mirrord kill`**:
 
-### Multi-Session Data Model
+```rust
+fn mirrord_kill(session_id: Option<String>, all: bool) {
+    let sessions_dir = home_dir().join(".mirrord/sessions");
 
-The intproxy already tracks multiple layers via `LayerId`. The MonitorState uses the same model:
+    if all {
+        for session in discover_sessions(&sessions_dir) {
+            kill_session(&session);
+        }
+    } else if let Some(id) = session_id {
+        let session = find_session(&sessions_dir, &id);
+        kill_session(&session);
+    }
+}
+
+fn kill_session(session: &SessionInfo) {
+    // Connect to Unix socket and send kill command
+    let mut stream = UnixStream::connect(&session.socket_path)?;
+    write!(stream, r#"{{"type":"kill"}}"#)?;
+    // Wait for ack
+    // The intproxy will gracefully shut down, terminating all layers
+}
+```
+
+### Multi-Session Data Flow
 
 ```
-IntProxy instance
-  ├── Layer 1 (pid 1234, "node server.js")     ← main process
-  ├── Layer 2 (pid 1235, "node worker.js")      ← forked child
-  └── Layer 3 (pid 1236, "node worker.js")      ← forked child
+Session 1 intproxy ──Unix Socket──┐
+                                  │
+Session 2 intproxy ──Unix Socket──┼──► mirrord ui ──HTTPS+WS──► Browser
+                                  │
+Session 3 intproxy ──Unix Socket──┘
+
+mirrord status ────Unix Socket────► Session N intproxy (read-only query)
+mirrord kill ──────Unix Socket────► Session N intproxy (kill command)
 ```
 
-The Session Monitor UI shows all layers as sub-sessions within a single view. Stats are aggregated across all layers by default, with optional per-layer filtering in the UI.
+The `mirrord ui` process maintains a `HashMap<SessionId, SessionConnection>` where each `SessionConnection` is a tokio task reading from the Unix socket and forwarding events to the WebSocket broadcast channel.
 
-Each intproxy instance serves one Session Monitor. Multiple `mirrord exec` invocations create separate intproxy instances with separate monitors on different ports.
-
-### Security Considerations
-
-- **Localhost only**: The HTTP server binds to `127.0.0.1`, never `0.0.0.0`. Only local processes can access it.
-- **No secrets in events**: Environment variable values are never included in MonitorEvents. Only keys and source (remote/override/excluded) are exposed. File contents are never streamed, only paths and operation types.
-- **No control plane**: The Session Monitor is read-only. It cannot modify the session, restart agents, or drop sockets. Control features are reserved for Teams (future, via operator API).
-- **No auth**: Same security model as Vite dev server, Storybook, React DevTools. If you can access localhost, you can see the monitor.
+When a new socket appears in `~/.mirrord/sessions/`, `mirrord ui` connects to it automatically. When a socket disappears (session ended), the corresponding task is cleaned up and a `session_removed` event is sent to WebSocket clients.
 
 ### Performance Impact
 
-- **CPU**: The intproxy already processes every message. Emitting MonitorEvents adds a `serde_json::to_string` call per event and a `tokio::sync::broadcast::send`. Estimated overhead: <1% CPU.
-- **Memory**: MonitorState maintains bounded collections (ring buffers for recent events/files/DNS, capped at 1000 entries). Estimated overhead: <1MB.
-- **Network**: WebSocket traffic stays on localhost. No external network impact.
-- **When disabled**: Zero overhead. No HTTP server is started, no event tracking occurs.
+**On the intproxy (per session):**
+- CPU: Serializing MonitorEvents to JSON adds ~1% overhead (serde_json per event)
+- Memory: MonitorState bounded at ~1MB (ring buffers for recent events)
+- I/O: Unix socket writes are negligible (local IPC)
+- When no client is connected: events are dropped (broadcast channel with no receivers)
 
-The event channel uses `tokio::sync::broadcast` with a bounded capacity (e.g., 4096). If no WebSocket clients are connected, events are dropped (no buffering). If a slow client falls behind, it receives a `Lagged` error and can re-sync via `GET /api/state`.
+**On `mirrord ui`:**
+- Aggregates events from all sessions. Memory scales linearly with number of active sessions.
+- WebSocket broadcasts to browser clients add minimal overhead.
+
+**When disabled (`session_monitor.enabled = false`):**
+- Zero overhead. No socket file created, no event tracking in intproxy.
+
+### Changelog / What's New Feature
+
+The `mirrord ui` server includes a `/api/changelog` endpoint that:
+
+1. Fetches the latest releases from `https://api.github.com/repos/metalbear-co/mirrord/releases` (public API, no auth needed)
+2. Caches the response for 1 hour
+3. Returns the latest 5 releases with title, date, and body (markdown)
+
+The UI shows a "What's New" section with the latest release notes, linking to the full changelog. This keeps users informed and engaged.
+
+### Version and License Display
+
+The UI header shows:
+- mirrord version (compiled into the binary)
+- OSS vs Teams status (detected by checking if operator is configured/reachable)
+- If Teams: subscription tier and license info (fetched from operator)
+- If OSS: "Upgrade to Teams" CTA
 
 ## Drawbacks
 [drawbacks]: #drawbacks
 
-1. **Binary size increase**: Embedding the React frontend adds ~200-300KB to the mirrord CLI binary. This is small relative to the current binary size (~30MB) but non-zero.
+1. **Two-process model**: `mirrord ui` is a separate process from the intproxy. Users must explicitly run it. This is intentional (following Aviram's architecture), but some users may expect auto-launch.
 
-2. **Build complexity**: The CI pipeline needs to build the frontend (Node.js) before the Rust binary. This adds a build step and a Node.js dependency to CI.
+2. **Unix socket limitation**: Unix sockets don't work on Windows. For Windows support (future), we'd need named pipes or TCP with authentication. macOS and Linux are the primary targets.
 
-3. **Port conflicts**: Binding a random localhost port is usually fine, but in constrained environments (containers with limited port ranges, strict firewall rules), it could fail. Mitigation: the feature is disableable.
+3. **Self-signed TLS**: Browsers show a certificate warning on first access. Users must click through "Advanced > Proceed" once. This is the trade-off for localhost TLS without a CA.
 
-4. **Maintenance burden**: A new frontend (React app) to maintain, even if small. Design changes, dependency updates, security patches.
+4. **Binary size increase**: Embedding the React frontend adds ~200-300KB. Small relative to the ~30MB mirrord binary.
 
-5. **Feature creep risk**: Once a UI exists, there will be pressure to add more features to it (config editing, session control, etc.). The RFC scope intentionally limits this to read-only observation.
+5. **Build complexity**: CI needs Node.js to build the frontend before embedding in the Rust binary.
 
-6. **axum dependency**: Adding axum to the intproxy pulls in a non-trivial dependency tree (hyper, tower, etc.). However, the intproxy already depends on hyper (for HTTP gateway in IncomingProxy), so the incremental cost is mainly axum itself and tokio-tungstenite for WebSocket.
+6. **Stale socket cleanup**: If an intproxy crashes without cleaning up its socket, stale files remain. Mitigated by detection and cleanup in `mirrord status` and `mirrord ui`.
+
+7. **Security surface**: Even with TLS + CSRF + Unix permissions, a local attacker with the same UID could connect to the Unix sockets. This is the same threat model as Docker.
 
 ## Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-### Why the intproxy?
+### Why Unix sockets + separate UI server (vs embedded HTTP per intproxy)?
 
-The intproxy is the only component that sees ALL messages between every layer and the agent. It already aggregates data from multiple layers (forked processes). Adding the monitor here means:
-- Zero changes to the layer (LD_PRELOAD library, hardest to modify)
-- Zero changes to the agent (runs in customer clusters, hardest to deploy)
-- Zero changes to the protocol (no new message types between layer and agent)
+An earlier draft of this RFC proposed embedding an HTTP server directly in each intproxy. The Unix socket + `mirrord ui` architecture is better because:
+
+- **Multi-session aggregation**: One UI shows all sessions. No need to remember different ports for different sessions.
+- **Security**: Unix socket permissions (0700) provide OS-level access control. The `mirrord ui` server adds TLS + CSRF on top. An embedded HTTP server per intproxy would need its own auth.
+- **Separation of concerns**: The intproxy stays focused on proxying. The UI server is a separate concern.
+- **CLI integration**: `mirrord status` and `mirrord kill` use the same Unix sockets, no HTTP needed for CLI commands.
+- **Resource efficiency**: Only one HTTP server running (the `mirrord ui` process), not one per session.
 
 ### Why not the layer?
 
-The layer runs inside the user's process via LD_PRELOAD. Adding an HTTP server there would:
+The layer runs inside the user's process via LD_PRELOAD. Adding any IPC there would:
 - Compete for the process's event loop
-- Risk interfering with the application's own port bindings
-- Require changes to the delicate hook/detour system
-- Not support multi-layer aggregation (each layer only sees its own operations)
+- Risk interfering with the application's own socket usage
+- Not support multi-layer aggregation
 
-### Why not a separate sidecar process?
+### Why not a TUI?
 
-A separate process would need IPC to receive events from the intproxy. The intproxy already runs as a separate process. Adding the HTTP server directly to it avoids an extra process and IPC complexity.
+A terminal UI (like k9s) is hostile to AI coding agents, which work best with structured CLI output. The browser UI is for humans, the CLI commands (`--json`) are for agents. A TUI falls between these and serves neither well.
 
-### Why not the IDE extension?
+However, CLI commands like `mirrord status` and `mirrord kill` provide all the functionality an AI agent needs without a TUI.
 
-The VS Code and IntelliJ extensions could host a webview panel. However:
-- Not all users use an IDE (CLI users, CI pipelines)
-- Requires separate implementations for VS Code and IntelliJ
-- The IDE extension can open the Session Monitor URL in a webview as a future enhancement (Phase 4)
+### Why TLS + CSRF + token?
 
-### Why not a TUI (terminal UI)?
-
-A terminal UI (like k9s) would conflict with the user's own terminal output (their application's stdout/stderr). A browser-based UI runs in a separate window and doesn't interfere.
+Localhost isn't automatically safe. A malicious website could make requests to `http://localhost:59281` via JavaScript (CSRF attack). The token cookie prevents this. TLS prevents local network sniffing on shared machines. This follows the same security model as Jupyter Notebook's localhost server.
 
 ### Impact of not doing this
 
-mirrord remains a black box. Developers continue to rely on verbose logging for debugging. We have no UI surface to reach OSS users for Teams upsell. The admin dashboard continues to only serve paying customers.
+mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI agents can't interact with mirrord sessions programmatically.
 
 ## Prior art
 [prior-art]: #prior-art
 
+### Docker CLI + Docker Desktop
+
+Docker uses a Unix socket (`/var/run/docker.sock`) for the Docker daemon API. Docker Desktop provides a GUI that connects to the same socket. `docker ps`, `docker kill` are CLI equivalents. Our architecture mirrors this pattern exactly: Unix sockets for IPC, separate UI process, CLI commands for scripting.
+
 ### Tilt (localhost:10350)
 
-Tilt starts a local web UI at `localhost:10350` showing resource status, build logs, and health checks. It's the closest model to what we're proposing.
+Tilt embeds an HTTP server directly (the approach we considered but rejected). Works well for single-resource views. Less ideal for multi-session aggregation.
 
-**What works well:** Always available, zero setup, auto-opens browser (configurable).
-**What we'd do differently:** Tilt focuses on build/deploy status. We focus on session-level detail (traffic, files, DNS). Tilt also doesn't have an upsell surface since it's fully open source.
+### Jupyter Notebook
 
-### Vite Dev Server
-
-Vite's dev server overlay shows build errors and HMR status directly in the browser. It demonstrates that embedding a small UI server in a dev tool is well-accepted.
-
-### React DevTools
-
-Chrome extension with a panel showing component tree, state, and performance. Shows that developers are willing to use a separate UI for debugging their runtime.
+Jupyter runs an HTTPS localhost server with token-based authentication. Users access it via `https://localhost:8888?token=...`. This is the exact security model we're adopting for `mirrord ui`.
 
 ### Telepresence Dashboard
 
-Telepresence (now owned by Gravitee) has a cloud-hosted dashboard for intercept management. Requires account signup and internet connectivity. Our approach is local-first with no cloud dependency.
+Cloud-hosted dashboard requiring account signup. Our approach is local-first with no cloud dependency, which is better for developer trust and offline use.
 
-### Grafana Agent / Prometheus
+### Grafana Agent
 
-These tools run local HTTP servers for health checks and metrics scraping (`/metrics` endpoint). Shows that running an HTTP server alongside a monitoring agent is standard practice.
+Runs a local HTTP server for metrics scraping. Shows that local HTTP servers for monitoring are standard practice in the dev tools ecosystem.
 
 ## Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-1. **Event granularity**: Should every individual `read()` syscall be a MonitorEvent, or should we batch/aggregate? High-throughput applications could generate thousands of file reads per second. Proposal: aggregate at the intproxy level (increment counters), emit individual events only for "interesting" operations (first access to a new file, errors, DNS, connections).
+1. **Event granularity**: Should every individual `read()` syscall generate a MonitorEvent, or should we batch/aggregate? High-throughput applications could generate thousands of file reads per second. Proposal: aggregate counters in the intproxy, emit individual events only for "interesting" operations (first access to a new file path, errors, DNS queries, new connections).
 
-2. **Value redaction policy**: Should env var values ever be shown? Some are harmless (e.g., `NODE_ENV=production`), others are secrets (e.g., `DATABASE_URL`). Proposal: never show values by default, add opt-in config `session_monitor.show_env_values = true`.
+2. **Env var value redaction**: Should env var values ever be shown? Proposal: never by default, with opt-in via `mirrord ui --show-env-values` for debugging.
 
-3. **Frontend repo location**: Options are (a) `mirrord/monitor-ui/` in the main mirrord repo, (b) separate `mirrord-monitor` repo, (c) in the existing `operator/dashboard/` directory. Recommendation: (a) in the main repo, since it ships with the CLI binary and needs to be embedded at build time.
+3. **Frontend location in repo**: Options: (a) `mirrord/monitor-ui/` in the main mirrord repo (recommended, since it ships with the CLI binary), (b) separate `mirrord-monitor` repo.
 
-4. **axum vs alternatives**: The license-server uses axum. The intproxy doesn't currently have an HTTP framework. Should we use axum for consistency, or a lighter-weight alternative like `warp` or raw `hyper`? The intproxy already depends on hyper.
+4. **Self-signed cert UX**: The browser TLS warning is friction. Alternatives: (a) accept the warning (Jupyter does this), (b) use HTTP with just CSRF token (simpler, less secure), (c) generate and install a local CA cert on first run (more complex, better UX). Recommendation: start with (a), consider (c) later.
 
-5. **CI environments**: Should the Session Monitor be disabled by default in CI? Proposal: auto-detect CI via standard env vars (`CI=true`, `GITHUB_ACTIONS`, `JENKINS_URL`, etc.) and disable unless explicitly enabled.
+5. **Socket protocol versioning**: How to handle protocol changes between mirrord versions? If a user runs `mirrord ui` v3.166 but has an active session from `mirrord exec` v3.165, the socket protocol must be compatible. Proposal: include a `protocol_version` field in the hello message and handle gracefully.
 
-6. **Existing `--json` flag interaction**: The mirrord CLI has a `--json` flag for machine-readable output. How does the Session Monitor URL get communicated in JSON mode? Proposal: include it in the JSON output as `"session_monitor_url": "http://localhost:48291"`.
+6. **Windows support**: Unix sockets are not available on Windows. Defer Windows support or use named pipes?
+
+7. **Session directory on shared machines**: If multiple users share a machine, `~/.mirrord/sessions/` is per-user (different home dirs). Is there a use case for a system-wide sessions directory?
 
 ## Future possibilities
 [future-possibilities]: #future-possibilities
 
-1. **Teams features in Session Monitor**: When the operator is available, the Session Monitor can fetch additional data (remote sessions, session history, target topology) and display them alongside the local session data. Locked features for non-Teams users become the upsell surface.
+1. **Teams features in UI**: When the operator is available, the UI can show remote sessions (who else is targeting this service), session history, and target topology. Locked for OSS users as upsell surface.
 
-2. **Session control** (Teams): Stop session, restart agent, drop sockets, pause stealing. Requires new operator API endpoints and authentication.
+2. **Session control actions** (Teams): Via the operator API, the UI could offer actions like restart agent, drop sockets, and pause stealing. These would be additional commands sent over the Unix socket and forwarded to the operator.
 
-3. **IDE integration**: VS Code command "mirrord: Open Session Monitor" that opens the URL in a webview panel. IntelliJ tool window integration. Both just open the existing localhost URL.
+3. **IDE integration**: VS Code command "mirrord: Open Session Monitor" that either opens the `mirrord ui` URL in a webview or starts `mirrord ui` if not running. IntelliJ equivalent.
 
-4. **Config suggestions**: Based on observed patterns (frequently accessed remote files, unused port subscriptions), suggest config improvements. "Add `/app/config.yaml` to your local filter to save 200ms per request."
+4. **Config suggestions**: Based on observed patterns (files read remotely that could be local, ports not receiving traffic), suggest mirrord config improvements directly in the UI.
 
-5. **Session recording**: Save the event stream to a file for post-mortem debugging or sharing with teammates. `mirrord exec --record session.json`.
+5. **Session recording**: `mirrord exec --record session.json` saves the event stream to a file. `mirrord ui --replay session.json` replays it in the UI for post-mortem debugging.
 
-6. **Metrics export**: Expose a `/metrics` Prometheus endpoint for integration with existing monitoring stacks.
+6. **MCP server**: Expose the session data as an MCP (Model Context Protocol) server that AI coding agents can connect to directly, rather than parsing CLI output.
 
-7. **Multi-session aggregator**: A separate page/tool that discovers all running intproxy instances on localhost and shows a unified view of all active mirrord sessions.
+7. **Metrics export**: `/metrics` Prometheus endpoint on the `mirrord ui` server for integration with existing monitoring stacks.
 
-8. **Analytics**: With user consent, send anonymized usage telemetry (features used, session duration, error rates) to help prioritize development. Fully opt-in.
+8. **Multi-machine aggregation**: A future `mirrord ui --remote` mode that connects to session sockets on remote machines (via SSH tunneling), enabling team-wide session visibility without the operator.
