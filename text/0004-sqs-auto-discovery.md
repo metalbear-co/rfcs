@@ -6,57 +6,107 @@
 ## Summary
 [summary]: #summary
 
-Improve user experience when configuring SQS splitting.
-mirrord Operator is able to automatically detect SQS queues consumed by target workloads,
-and on demand exposes this data to the mirrord admin. The admin can later use it when configuring SQS splitting.
+Reduce the time and coordination required to enable SQS splitting. The mirrord operator will be able to observe which SQS queues a selected workload actually uses, then expose that information to a mirrord admin. The discovered queue names can later be used when creating `MirrordWorkloadQueueRegistry` resources and configuring SQS splitting sessions.
 
 ## Motivation
 [motivation]: #motivation
 
-mirrord admin usually does not now which SQS queues are consumed by which workloads.
-This knowledge is required to create `MirrordWorkloadQueueRegistry` and enable SQS splitting sessions.
-Because of this, setting up SQS splitting takes a long time, as it requires communication between teams.
-Speeding up this process translates to speeding up mirrord adoption in the organization.
+Today, enabling SQS splitting requires an admin to know which queues belong to which workloads. In practice, that mapping is often knowledge held by the application team (if anyone), not the platform team operating mirrord. As a result, rollout becomes slow and communication-heavy:
+
+1. The admin identifies a workload that should support SQS splitting.
+2. The admin asks the owning team which queues it consumes.
+3. The application team investigates code, configuration, and runtime behavior.
+4. Only then can the admin create the matching `MirrordWorkloadQueueRegistry`.
+
+This slows down adoption of SQS splitting and turns what should be an operator task into a cross-team coordination exercise.
+
+Automatic discovery improves this workflow by letting the operator learn queue usage from real traffic. The admin still decides how to configure SQS splitting, but no longer needs to manually discover the queue-to-workload mapping first.
+
+### Use cases
+
+1. A platform engineer wants to prepare a workload for SQS splitting without waiting on the application team to enumerate every queue.
+2. An application team is unsure which queues are still used in production and wants operational evidence before enabling splitting.
+3. An organization rolling out mirrord across many services wants a repeatable, low-touch workflow for SQS onboarding.
 
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Operator reconciles workloads marked for SQS autodiscovery (see [detection](#detection-of-workloads-marked-for-autodiscovery)).
-For each such workload, the operator ensures that all of workload's pods run with proxy sidecars injected.
-The sidecars:
+An admin marks a workload for SQS autodiscovery. The operator then ensures that each pod of that workload runs with a lightweight proxy sidecar.
 
-1. Intercept all SQS requests made by the application
-2. Inspect the requests and extract queue names
-3. Transparently pass the requests to their original destination
+The sidecar sits on the path of outbound SQS requests and does three things:
 
-The operator periodically queries sidecars for names of consumed queues, and exposes this data to the admin (see [detection](#detection-of-workloads-marked-for-autodiscovery)).
+1. Receives the SQS request before it leaves the pod.
+2. Extracts queue information from the request.
+3. Forwards the request to AWS so the application continues to behave normally.
 
-This new functionality does not directly interact with any other mirrord feature.
+Separately, the operator periodically collects the discovered queue names from the sidecars and exposes them back to the admin. The exact API surface is still open in this RFC: the data may be attached directly to the workload, or surfaced through `MirrordWorkloadQueueRegistry`.
+
+From the admin's point of view, the feature is intentionally simple:
+
+1. Opt a workload into autodiscovery.
+2. Let the workload run normally for some time.
+3. Inspect the discovered queue names.
+4. Use that information when creating the final SQS splitting configuration.
+
+This feature is advisory. It does not enable SQS splitting by itself, and it does not change message-routing behavior. It only shortens the path from "we want SQS splitting here" to "we know how to configure it."
+
+This proposal also has minimal interaction with the rest of mirrord. It uses operator-managed workload patching and sidecar injection, but does not otherwise change traffic stealing, file ops, DNS, or environment handling outside the SQS-specific pod modifications described below.
 
 ## Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-There are 4 major parts of the implementation:
-1. Detection of workloads marked for autodiscovery
-2. Sidecar injection
-3. Handling of SQS requests
-4. Data collection
+The design has four major parts:
+
+1. Detect workloads that should participate in autodiscovery.
+2. Inject a proxy sidecar into those workloads.
+3. Redirect SQS requests through the sidecar.
+4. Periodically collect the discovered queue names from the sidecars.
 
 ### Detection of workloads marked for autodiscovery
 
-There are two options to consider:
-1. New label, e.g. `operator.metalbear.co/sqs-splitting: "{\"autoDiscovery\": true}"`. The admin adds the label to the workloads.
-The operator reconciles all SQS-splitting-compatible workloads with this label.
-2. New `MirrordWorkloadQueueRegistry` flag, e.g. `.spec.sqs.autoDiscovery: true`.
-The admin sets the flag. The operator reconciles all registries.
+This RFC leaves the control-plane shape open, but there are two concrete options.
 
-This also determines how the operator later exposes the data to the admin:
-1. New annotation on the workload, e.g. `operator.metalbear.co/sqs-splitting: "{\"discoveredQueues\": [...]}"`
-2. New `MirrordWorkloadQueueRegistry` status field, e.g. `.status.sqsDetails.discoveredQueues`
+#### Option A: mark workloads directly
+
+Example:
+
+```yaml
+metadata:
+  labels:
+    operator.metalbear.co/sqs-splitting: '{"autoDiscovery": true}'
+```
+
+In this model, the admin annotates or labels the workload directly, and the operator reconciles all SQS-splitting-compatible workloads that carry the marker.
+
+This keeps opt-in close to the workload and makes autodiscovery easy to enable before any `MirrordWorkloadQueueRegistry` exists.
+
+#### Option B: mark `MirrordWorkloadQueueRegistry`
+
+Example:
+
+```yaml
+spec:
+  sqs:
+    autoDiscovery: true
+```
+
+In this model, the admin sets a flag on the registry, and the operator reconciles registries instead of raw workloads.
+
+This keeps autodiscovery inside the existing SQS configuration model, but it means the admin must create registry objects earlier in the workflow.
+
+#### Where the output should go
+
+The same choice affects how the operator exposes discovered queues:
+
+1. A workload annotation, for example `operator.metalbear.co/sqs-splitting: '{"discoveredQueues": [...]}'`
+2. A new `MirrordWorkloadQueueRegistry` status field such as `.status.sqsDetails.discoveredQueues`
+
+The RFC does not yet choose between these shapes. The main tradeoff is whether autodiscovery should be modeled as workload metadata or as part of the registry lifecycle.
 
 ### Sidecar injection
 
-First, we need to add a new field to `MirrordClusterWorkloadPatchRequest` and `MirrordClusterWorkloadPatch`, allowing them to inject sidecar containers into pods.
+To support autodiscovery, the operator must be able to inject a sidecar container in addition to the existing environment-variable patching.
+The cleanest way to express that is to extend `MirrordClusterWorkloadPatchRequest` and `MirrordClusterWorkloadPatch` with a new `sidecars` field.
 
 ```rust
 pub struct MirrordClusterWorkloadPatchRequestSpec {
@@ -80,28 +130,32 @@ pub struct Sidecar {
 }
 ```
 
-`name` field on the sidecar allows for detecting conflicts in the patch request controller.
+The `name` field is important because it gives the patch request controller a stable way to detect conflicts between injected sidecars.
 
-With this, the operator can easily patch the workload's pods:
-1. Generate a random port for the sidecar to accept SQS requests on.
-2. Prepare sidecar spec.
+For each selected workload, the operator would:
+
+1. Allocate a random local port for the sidecar's SQS listener.
+2. Build the sidecar container spec.
 3. Issue a patch request that:
-    * Injects extra environment variables into the original containers (see [next section](#handling-of-sqs-requests))
-    * Injects the sidecar container
+   - injects the environment variables required to redirect SQS traffic to the sidecar
+   - injects the sidecar container itself
 
 ### Handling of SQS requests
 
-In order to inspect the requests, we redirect them to the sidecar.
-Here we have two options as well: `AWS_ENDPOINT_URL` and `HTTP(S)_PROXY`.
+The sidecar must be able to inspect SQS requests and still forward them to the correct AWS endpoint. There are two candidate mechanisms for redirecting traffic from the application to the sidecar:
 
-Note that **both** options require adjustments to the application code.
+1. `AWS_ENDPOINT_URL`
+2. `HTTP(S)_PROXY`
 
-#### `AWS_ENDPOINT_URL`
+Both require some application-level adjustments, so the question is not whether code changes are needed, but which set of changes is more acceptable.
 
-This is the official way of telling AWS SDKs to use a different endpoint, so we can expect all their SDKs to respect it.
-The SDK will send requests like this:
+#### Option A: `AWS_ENDPOINT_URL`
 
-```
+`AWS_ENDPOINT_URL` is the SDK-supported mechanism for overriding the target endpoint. That makes it the more natural fit for this feature, because the application is still talking directly to "an SQS endpoint", just one that happens to be the local sidecar.
+
+With this approach, the SDK sends requests similar to the following:
+
+```http
 POST / HTTP/1.1
 content-type: application/x-amz-json-1.0
 x-amz-target: AmazonSQS.GetQueueUrl
@@ -120,76 +174,85 @@ connection: keep-alive
 {"QueueName":"test"}
 ```
 
-Couple of notes:
-1. URI is just `/`, and `host` header is the sidecar's socket address.
-2. Request is signed (`authorization` header).
-3. SQS operation kind is speficied in the header - `x-amz-target: AmazonSQS.GetQueueUrl`.
+Important properties of this request:
 
-In order to pass the request to its original destination, we need to reconstruct it's URL from the `Credential` entry in the `authorization` header.
-The entry contains the region:
-`Credential=<...>/<...>/eu-central-1/sqs/aws4_request` -> `sqs.eu-central-1.amazonsqs.com`
+1. The URI is just `/`, and the `host` header points at the sidecar.
+2. The request is still SigV4-signed.
+3. The operation is carried in `x-amz-target`, for example `AmazonSQS.GetQueueUrl`.
 
-One important note is that SQS queues are mostly accessed by their URLs.
-Because of this, the **application code must be adjusted** - SDK must be configured not to use queue URL as endpoint.
+To forward the request, the sidecar must reconstruct the original AWS endpoint. The required region is already present in the credential scope inside the `authorization` header:
+
+`Credential=<...>/<...>/eu-central-1/sqs/aws4_request`
+
+From that, the sidecar can infer the upstream endpoint, for example `sqs.eu-central-1.amazonaws.com`.
+
+The main complication is that many SQS SDK workflows eventually switch from queue names to queue URLs. For autodiscovery to remain on the request path, the application must avoid treating the returned queue URL as a new endpoint. In the Node.js SDK v3, for example:
 
 ```javascript
 const client = new SQSClient({
-    credentials: defaultProvider(),
-    useQueueUrlAsEndpoint: false,
+  credentials: defaultProvider(),
+  useQueueUrlAsEndpoint: false,
 });
 ```
 
-If the SDK is not configured properly, following scenarios will fail:
-1. Application uses prefetched queue URL -> request bypasses our proxy.
-2. Application fetches queue URL -> proxy passes the request to AWS -> AWS returns queue URL like `https://127.0.0.1:<port>` -> application later makes an HTTPS request to the proxy -> request fails.
+Without this adjustment, two failure modes appear:
 
-While the second case can be fixed by editing the response body, the first case cannot be fixed in any way.
-Application code adjustment is required.
+1. If the application already has a prefetched queue URL, later requests bypass the sidecar entirely.
+2. If the application fetches the queue URL through the sidecar, AWS will return an **HTTPS** URL based on the sidecar endpoint, and later requests will fail.
 
-#### `HTTP(S) PROXY`
+The second case is theoretically fixable by mutating the response body (change schema from `https` to `http` in queue URL, if the response contains one).
+The first is not. Because of that, application changes are required for this option.
 
-This is a standard way of telling applications to direct HTTP(S) requests to a systemwide proxy.
-Not all AWS SDKs respect it (e.g. Node.js SDK v3), so the **application code must be adjusted**.
+#### Option B: `HTTP(S)_PROXY`
 
-In this solution the main issue is that AWS SDK will always use HTTPS.
-Even if we make it use the sidecar as a plain HTTP proxy, the SDK will still enforce TLS by making a `CONNECT` request.
+`HTTP(S)_PROXY` is the more generic mechanism: applications are told to route outbound HTTP(S) traffic through a local proxy.
+In theory that lets the sidecar observe SQS without reconstructing the original endpoint.
 
-In order to make it work, we need to terminate TLS **in the proxy sidecar**.
-Doing that will require injecting a dummy CA into the application's truststore,
-as we will need to pretend that we're `sqs.<region>.amazonaws.com`.
-Since AWS SDKs use embedded lists of Mozilla-approved CAs,
-we will not be able to simply inject the dummy CA through the filesystem.
-This is the second required **adjustment of the application code**.
+In practice, this path is more invasive:
 
-Full example with Node.js SDK v3:
+1. Not all AWS SDKs respect system proxy settings. Node.js SDK v3 is one example.
+2. SQS traffic is HTTPS, so the SDK will usually send a `CONNECT` request and still expect end-to-end TLS.
+3. The sidecar would need to terminate TLS while impersonating `sqs.<region>.amazonaws.com`.
+4. That in turn requires distributing a custom CA and teaching the application to trust it.
+
+Because many SDKs rely on embedded CA bundles, simply mounting a certificate file is often not enough. The application may need explicit trust-store configuration. For example, with the Node.js SDK v3:
+
 ```javascript
-  const mirrordProxyCaPath = process.env.MIRRORD_PROXY_CA_PATH;
-  const mirrordProxyCa = readFileSync(mirrordProxyCaPath, "utf8");
-  const sqsClient = addProxyToClient(
-    new SQSClient( {credentials: defaultProvider() }),
-    {
-      agentOptions: {
-        ca: [mirrordProxyCa], // this overrides *all* certs trusted by default
-      }
-    }
-  );
+const mirrordProxyCaPath = process.env.MIRRORD_PROXY_CA_PATH;
+const mirrordProxyCa = readFileSync(mirrordProxyCaPath, "utf8");
+const sqsClient = addProxyToClient(
+  new SQSClient({ credentials: defaultProvider() }),
+  {
+    agentOptions: {
+      ca: [mirrordProxyCa], // overrides the default trust roots
+    },
+  }
+);
 ```
+
+This option might seem a bit more complex, but it does have a very nice property - we can establish a generic pattern for enabling mfT to be man-in-the-middle for outbound HTTPS traffic. While we don't have any use cases for it right now, it does seem very handy.
 
 ### Data collection
 
-Sidecar containers run a second HTTP server (random high port, public IP `0.0.0.0`).
-This second server allows for querying observed queue names.
-Operator periodically queries the sidecars for data.
+In addition to the request-forwarding listener, the sidecar runs a second HTTP server on a random high port, bound to `0.0.0.0` inside the pod. This endpoint exposes the set of queue names observed by that sidecar.
 
-For the first version, we can leave this second API plain.
-Should a relevant request come from the users, we can add TLS:
-1. Operator generates a random certificate.
-1. Proxy sidecar gets the certificate through env.
-2. After accepting the TCP connection, sidecar runs TLS connect (accepting only the certificate found in env).
-3. After making the TCP connection, operator runs TLS accept (offering only the previously generated certificate).
+The operator periodically polls these sidecars and aggregates the results for the owning workload. Discovery is therefore best-effort and observational:
+
+1. Only queues that were actually used while autodiscovery was enabled will be reported.
+2. Newly deployed pods may observe different queues over time.
+3. The exposed data should be treated as a helpful starting point, not a formal source of truth.
+
+For the first iteration, this second API can be left as plain HTTP inside the cluster. If customers later require stronger guarantees, the design can be extended with operator-issued certificates:
+
+1. The operator generates a random certificate.
+2. The sidecar receives the certificate through environment variables.
+3. The sidecar accepts only connections that present the expected certificate.
+4. The operator presents that certificate when polling sidecars.
 
 ## Drawbacks
 [drawbacks]: #drawbacks
+
+Discovery requires application changes regardless of which request-redirection mechanism is chosen.
 
 ## Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
@@ -197,20 +260,30 @@ Should a relevant request come from the users, we can add TLS:
 ## Prior art
 [prior-art]: #prior-art
 
+This design follows two well-established patterns:
+
+1. Sidecar-based traffic observation inside Kubernetes pods.
+2. Endpoint or proxy overrides for SDK-driven outbound traffic.
+
+Internally, it also aligns with existing mirrord operator behavior: the operator already patches workloads, injects environment variables, and manages runtime changes on behalf of the admin. This proposal extends that model to SQS-specific discovery rather than introducing a separate control plane.
+
 ## Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-1. How should the admin mark workloads for autodiscovery? Should it be a new label on the workload or a field in the `MirrordWorkloadQueueRegistry`?
-2. Similarly, where should we put autodiscovery output? Should it be an annotation on the workload or a field in the `MirrordWorkloadQueueRegistry` status?
-3. Should we use `AWS_ENDPOINT_URL` or `HTTP(S)_PROXY`?
+1. How should the admin opt a workload into autodiscovery: a new workload marker, or a field in `MirrordWorkloadQueueRegistry`?
+2. Where should discovered queue names be published: workload metadata, or `MirrordWorkloadQueueRegistry` status?
+3. Which traffic-redirection mechanism should we standardize on for the first implementation: `AWS_ENDPOINT_URL` or `HTTP(S)_PROXY`?
 
 ## Future possibilities
 [future-possibilities]: #future-possibilities
 
-A natural extension of this approach is to use the proxy sidecar for message routing during the SQS split itself.
-Since the sidecar controls SQS requests and runs with the same service account, it can be used to patch the `AmazonSQS.ReceiveMessage` requests on the fly:
+The most natural extension is to reuse the same sidecar not only for discovery, but also for the SQS split itself.
+Because the sidecar already observes SQS requests and runs with the workload's identity,
+it could eventually become the control plane for message routing.
 
-1. Retrieve the queue URL from the request body.
-2. Determine the URL of the correct temporary output queue, according to the filters.
-3. Change the queue URL in the request body.
-4. Resign the request using the available credentials.
+One possible future flow for `AmazonSQS.ReceiveMessage` would be:
+
+1. Read the queue URL from the request body.
+2. Determine the temporary output queue that matches the active split filters.
+3. Rewrite the request to target that queue.
+4. Re-sign the modified request with the available credentials.
