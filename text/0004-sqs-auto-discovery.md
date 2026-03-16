@@ -203,6 +203,9 @@ Without this adjustment, two failure modes appear:
 The second case is theoretically fixable by mutating the response body (change schema from `https` to `http` in queue URL, if the response contains one).
 The first is not. Because of that, application changes are required for this option.
 
+One imporant thing to consider with this option - if we override `AWS_ENDPOINT_URL`, we're going to be handling **all** AWS requests made by the app.
+There might be more bad interactions like the one above.
+
 #### Option B: `HTTP(S)_PROXY`
 
 `HTTP(S)_PROXY` is the more generic mechanism: applications are told to route outbound HTTP(S) traffic through a local proxy.
