@@ -1,7 +1,7 @@
 - Feature Name: `sqs_auto_discovery`
 - Start Date: 2026-03-16
 - Last Updated: 2026-03-16
-- RFC PR: [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+- RFC PR: [metalbear-co/rfcs#21](https://github.com/metalbear-co/rfcs/pull/21)
 
 ## Summary
 [summary]: #summary
