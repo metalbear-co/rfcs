@@ -149,7 +149,7 @@ Each intproxy instance creates a Unix domain socket at `~/.mirrord/sessions/<ses
 
 **Socket server architecture**: The socket server runs as a separate tokio task inside the intproxy (not in the main select! loop). Events are distributed via a broadcast channel (bounded, capacity 256). Events are emitted via `MonitorTx::emit()` which is fire-and-forget. If the broadcast channel is full, new events replace old ones. If the socket server task crashes, the intproxy continues running normally.
 
-**HTTP API on the Unix socket** (served by axum):
+**HTTP API on the Unix socket** (per-session, served by axum over `~/.mirrord/sessions/<id>.sock`, not exposed over TCP):
 
 ```
 GET  /health          → Health check (returns 200 OK)
@@ -228,18 +228,17 @@ A new subcommand that runs a web server aggregating all local sessions.
 - **Unix socket permissions**: `~/.mirrord/sessions/` has `0700`, socket files have `0600`. Only the user can access their sessions. Same model as Docker's `/var/run/docker.sock`.
 - **Localhost binding**: `127.0.0.1` only, never `0.0.0.0`.
 
-**HTTP endpoints:**
+**HTTP endpoints (browser-facing, served by `mirrord webext` on localhost:59281):**
 
 ```
-GET  /                     → Serve React frontend (index.html)
-GET  /assets/*             → Static JS/CSS assets
-GET  /api/sessions         → List all active sessions (JSON)
-GET  /api/sessions/:id     → Session detail + current state (JSON)
+GET  /                      → Serve React frontend (index.html)
+GET  /assets/*              → Static JS/CSS assets
+GET  /api/sessions          → List all active sessions (JSON)
+GET  /api/sessions/:id      → Session detail + current state (JSON)
 POST /api/sessions/:id/kill → Kill session (forwards to socket's POST /kill)
-GET  /api/version          → mirrord version, OSS/Teams status
-GET  /api/changelog        → Latest changelog entries (fetched from GitHub releases API, cached)
-WS   /ws                   → WebSocket: aggregated events from all sessions
-WS   /ws/:id               → WebSocket: events from a specific session
+GET  /api/version           → mirrord version, OSS/Teams status
+WS   /ws                    → WebSocket: aggregated events from all sessions
+WS   /ws/:id                → WebSocket: events from a specific session
 ```
 
 **WebSocket protocol (browser-facing):**
@@ -283,16 +282,6 @@ When a new socket appears in `~/.mirrord/sessions/`, `mirrord webext` connects t
 
 **When disabled (`experimental.session_monitor = false`):**
 - Zero overhead. No socket file created, no event tracking in intproxy.
-
-### Changelog / What's New Feature
-
-The `mirrord webext` server includes a `/api/changelog` endpoint that:
-
-1. Fetches the latest releases from `https://api.github.com/repos/metalbear-co/mirrord/releases` (public API, no auth needed)
-2. Caches the response for 1 hour
-3. Returns the latest 5 releases with title, date, and body (markdown)
-
-The UI shows a "What's New" section with the latest release notes, linking to the full changelog. This keeps users informed and engaged.
 
 ### Version and License Display
 
