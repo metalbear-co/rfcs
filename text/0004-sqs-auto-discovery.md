@@ -288,3 +288,7 @@ One possible future flow for `AmazonSQS.ReceiveMessage` would be:
 2. Determine the temporary output queue that matches the active split filters.
 3. Rewrite the request to target that queue.
 4. Re-sign the modified request with the available credentials.
+
+Which opens a way to removing `MirrordWorkloadQueueRegistry` entirely:
+1. mirrord does not need to know environment variables with queue names beforehand, as SQS requests can be patched in flight
+2. Any other configuration options could be specified directly in the target workload metadata
