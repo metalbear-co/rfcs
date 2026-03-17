@@ -144,14 +144,15 @@ For each selected workload, the operator would:
 
 The sidecar must be able to inspect SQS requests and still forward them to the correct AWS endpoint. There are two candidate mechanisms for redirecting traffic from the application to the sidecar:
 
-1. `AWS_ENDPOINT_URL`
+1. `AWS_ENDPOINT_URL_SQS`
 2. `HTTP(S)_PROXY`
 
 Both require some application-level adjustments, so the question is not whether code changes are needed, but which set of changes is more acceptable.
 
-#### Option A: `AWS_ENDPOINT_URL`
+#### Option A: `AWS_ENDPOINT_URL_SQS`
 
-`AWS_ENDPOINT_URL` is the SDK-supported mechanism for overriding the target endpoint. That makes it the more natural fit for this feature, because the application is still talking directly to "an SQS endpoint", just one that happens to be the local sidecar.
+`AWS_ENDPOINT_URL_SQS` is the SDK-supported mechanism for overriding the target endpoint for requests to SQS.
+That makes it the more natural fit for this feature, because the application is still talking directly to "an SQS endpoint", just one that happens to be the local sidecar.
 
 With this approach, the SDK sends requests similar to the following:
 
@@ -202,9 +203,6 @@ Without this adjustment, two failure modes appear:
 
 The second case is theoretically fixable by mutating the response body (change schema from `https` to `http` in queue URL, if the response contains one).
 The first is not. Because of that, application changes are required for this option.
-
-One imporant thing to consider with this option - if we override `AWS_ENDPOINT_URL`, we're going to be handling **all** AWS requests made by the app.
-There might be more bad interactions like the one above.
 
 #### Option B: `HTTP(S)_PROXY`
 
@@ -275,7 +273,7 @@ Internally, it also aligns with existing mirrord operator behavior: the operator
 
 1. How should the admin opt a workload into autodiscovery: a new workload marker, or a field in `MirrordWorkloadQueueRegistry`?
 2. Where should discovered queue names be published: workload metadata, or `MirrordWorkloadQueueRegistry` status?
-3. Which traffic-redirection mechanism should we standardize on for the first implementation: `AWS_ENDPOINT_URL` or `HTTP(S)_PROXY`?
+3. Which traffic-redirection mechanism should we standardize on for the first implementation: `AWS_ENDPOINT_URL_SQS` or `HTTP(S)_PROXY`?
 
 ## Future possibilities
 [future-possibilities]: #future-possibilities
