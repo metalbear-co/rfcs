@@ -231,7 +231,7 @@ const sqsClient = addProxyToClient(
 );
 ```
 
-This option might seem a bit more complex, but it does have a very nice property - we can establish a generic pattern for enabling mfT to be man-in-the-middle for outbound HTTPS traffic. While we don't have any use cases for it right now, it does seem very handy.
+This option might seem a bit more complex, but it does have a very nice property - we can establish a generic pattern for enabling mfT to be man-in-the-middle for outbound HTTPS traffic. This could later be used for session key propagation.
 
 ### Data collection
 
