@@ -213,8 +213,6 @@ pub struct SessionInfo {
 }
 ```
 
-> **Note**: The `session_id` for copy target sessions is controlled by the cluster (operator), not generated locally.
-
 > **Note**: The `mode` field is intentionally omitted. The session's steal/mirror mode and other settings are available in the `config` field, which contains the full mirrord configuration used for this session.
 
 ```mermaid
