@@ -1,4 +1,4 @@
-- Feature Name: session_monitor
+- Feature Name: api
 - Start Date: 2026-03-13
 - Last Updated: 2026-03-17
 - RFC PR: [metalbear-co/rfcs#20](https://github.com/metalbear-co/rfcs/pull/20)
@@ -14,14 +14,14 @@
 ## Summary
 [summary]: #summary
 
-Add a local session monitoring system to mirrord with two components: (1) each intproxy exposes a Unix socket (using axum) at `~/.mirrord/sessions/` with an HTTP API that provides session info and streams real-time events via SSE, and (2) a `mirrord webext` command that discovers all active session sockets, aggregates them into a unified REST API and WebSocket, and serves a React web UI over localhost. The config flag is `experimental.session_monitor` (defaults to false). The system works for all users (OSS and Teams) with no operator dependency.
+Add a local session monitoring system to mirrord with two components: (1) each intproxy exposes a Unix socket or named pipe (using axum) at `~/.mirrord/sessions/` with an HTTP API that provides session info and streams real-time events via SSE, and (2) a `mirrord ui` command that discovers all active session sockets, aggregates them into a unified REST API and WebSocket, and serves a React web UI over localhost. The config flag is `api: { enabled: true }` (defaults to enabled). The system works for all users (OSS and Teams) with no operator dependency.
 
 ## Motivation
 [motivation]: #motivation
 
 mirrord is a "black box" to its users. When a developer runs `mirrord exec`, they see their application start, but have no visibility into what mirrord is doing behind the scenes. This creates problems:
 
-1. **Debugging is blind** - When something doesn't work (wrong file served, missing env var, traffic not arriving), developers have no way to see what mirrord intercepted, what it forwarded remotely, and what fell back to local.
+1. **Debugging is blind** - When something doesn't work (wrong file served, missing env var, traffic not arriving), developers have no way to see what mirrord stole, what it forwarded remotely, and what fell back to local.
 
 2. **No session awareness** - Developers don't know if their session is healthy, how much traffic is flowing, or which remote resources they're accessing.
 
@@ -33,7 +33,7 @@ mirrord is a "black box" to its users. When a developer runs `mirrord exec`, the
 
 ### Use Cases
 
-1. **Developer debugging** - "My app isn't getting the right config. Let me open `mirrord webext` to see which files are being read remotely vs locally."
+1. **Developer debugging** - "My app isn't getting the right config. Let me open `mirrord ui` to see which files are being read remotely vs locally."
 
 2. **Multi-session overview** - "I have 3 mirrord sessions running in different terminals. Let me see them all in one place."
 
@@ -41,9 +41,9 @@ mirrord is a "black box" to its users. When a developer runs `mirrord exec`, the
 
 4. **Environment debugging** - "My app is connecting to the wrong database. Let me check which env vars mirrord fetched."
 
-5. **Session management** - "I forgot to close a mirrord session in another terminal. Let me kill it from the webext UI."
+5. **Session management** - "I forgot to close a mirrord session in another terminal. Let me kill it from the UI."
 
-6. **AI agent integration** - An AI coding agent queries the webext API to check session health or kill a session after a test run.
+6. **AI agent integration** - An AI coding agent queries the UI API to check session health or kill a session after a test run.
 
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -53,10 +53,12 @@ mirrord is a "black box" to its users. When a developer runs `mirrord exec`, the
 The Session Monitor is a separate command, not auto-launched:
 
 ```
-$ mirrord webext
+$ mirrord ui
 Session Monitor: http://localhost:59281
    Opening browser...
 ```
+
+In IDEs, the command is available as "mirrord: Open UI" which opens the UI in a webview or starts `mirrord ui` if not running.
 
 This starts a local web server that discovers and connects to all active mirrord sessions on the machine.
 
@@ -80,21 +82,21 @@ In `mirrord.json`:
 
 ```json
 {
-  "experimental": {
-    "session_monitor": true
+  "api": {
+    "enabled": true
   }
 }
 ```
 
-- `experimental.session_monitor` (default: `false`): Set to `true` to enable the Unix socket for this session. When disabled, the intproxy will not create a socket file.
+- `api.enabled` (default: `true`): Controls whether the intproxy creates a Unix socket (or named pipe on Windows) for this session. The `api` field uses object format for future extensibility. When disabled, the intproxy will not create a socket file.
 
-The `mirrord webext` command has its own flags:
+The `mirrord ui` command has its own flags:
 
 ```bash
-mirrord webext                        # Start UI, auto-open browser
-mirrord webext --no-open              # Start UI, don't open browser
-mirrord webext --port 8080            # Use specific port
-mirrord webext --sessions-dir /path   # Custom sessions directory
+mirrord ui                        # Start UI, auto-open browser
+mirrord ui --no-open              # Start UI, don't open browser
+mirrord ui --port 8080            # Use specific port
+mirrord ui --sessions-dir /path   # Custom sessions directory
 ```
 
 ### Interaction with Existing Features
@@ -102,16 +104,16 @@ mirrord webext --sessions-dir /path   # Custom sessions directory
 The session monitoring system is purely observational for v1. It does not modify mirrord's behavior, except for the kill endpoint on the session socket which terminates a session's intproxy process and its associated layers.
 
 The intproxy lifecycle is extended slightly:
-- On startup, the intproxy creates a Unix socket at `~/.mirrord/sessions/<session-id>.sock`
+- On startup, the intproxy creates a Unix socket (or named pipe on Windows) at `~/.mirrord/sessions/<session-id>.sock`
 - On shutdown, it removes the socket file
-- If the intproxy crashes, stale socket files are cleaned up by `mirrord webext` (it detects dead sockets and removes them)
+- Socket files are cleaned up automatically when no file descriptor references remain (standard Unix socket behavior). Additionally, `mirrord ui` detects stale sockets (connection refused) and removes them on startup
 
 ## Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
 ### Architecture Overview
 
-The system has two layers: session sockets (per-intproxy) and the aggregator/UI server (`mirrord webext`).
+The system has two layers: session sockets (per-intproxy) and the aggregator/UI server (`mirrord ui`).
 
 ```mermaid
 flowchart TD
@@ -150,13 +152,13 @@ flowchart TD
 
 ### Component 1: Session Socket (in intproxy)
 
-Each intproxy instance creates a Unix domain socket at `~/.mirrord/sessions/<session-id>.sock` on startup, serving an HTTP API via axum.
+Each intproxy instance creates a Unix domain socket (or named pipe on Windows) at `~/.mirrord/sessions/<session-id>.sock` on startup, serving an HTTP API via axum.
 
 **Session ID**: A UUID generated in `execution.rs` at startup, passed to the intproxy via the `MIRRORD_SESSION_ID` environment variable. The same ID is used for the socket filename and the operator session.
 
 **Socket directory**: `~/.mirrord/sessions/` is created with `0700` permissions (user-only access), following the Docker socket model. Socket files are created with `0600` permissions. This ensures only the current user can access their own sessions.
 
-**Socket server architecture**: The socket server runs as a separate tokio task inside the intproxy (not in the main select! loop). Events are distributed via a broadcast channel (bounded, capacity 256). Events are emitted via `MonitorTx::emit()` which is fire-and-forget. If the broadcast channel is full, new events replace old ones. If the socket server task crashes, the intproxy continues running normally.
+**Socket server architecture**: The socket server runs as a separate tokio task inside the intproxy (not in the main task). Events are distributed via a broadcast channel (bounded, capacity 256). Events are emitted via `MonitorTx::emit()` which is fire-and-forget. If the broadcast channel is full, new events replace old ones. If the socket server task crashes, the intproxy continues running normally.
 
 **HTTP API on the Unix socket** (per-session, served by axum over `~/.mirrord/sessions/<id>.sock`, not exposed over TCP):
 
@@ -170,17 +172,26 @@ POST /kill            → Kill session (terminates intproxy + layers)
 **SessionInfo** (returned by GET /info):
 
 ```rust
-pub struct SessionInfo {
-    session_id: String,
-    target: String,
-    mode: String,
-    started_at: String,         // ISO 8601
-    mirrord_version: String,
-    is_operator: bool,
+pub struct ProcessInfo {
     pid: u32,
     process_name: String,
 }
+
+pub struct SessionInfo {
+    session_id: String,
+    target: String,
+    started_at: String,         // ISO 8601
+    mirrord_version: String,
+    is_operator: bool,
+    processes: Vec<ProcessInfo>, // sessions can have multiple processes/PIDs
+    config: serde_json::Value,   // full mirrord config for this session (replaces mode field)
+    filter: Option<String>,      // traffic filter expression, if configured
+}
 ```
+
+> **Note**: The `session_id` for copy target sessions is controlled by the cluster (operator), not generated locally.
+
+> **Note**: The `mode` field is intentionally omitted. The session's steal/mirror mode and other settings are available in the `config` field, which contains the full mirrord configuration used for this session.
 
 **MonitorEvent** (streamed via SSE on GET /events):
 
@@ -204,7 +215,7 @@ pub enum MonitorEvent {
         mode: String,       // "steal", "mirror"
     },
     EnvVar {
-        count: usize,
+        vars: Vec<(String, String)>,  // key-value pairs of fetched env vars
     },
     LayerConnected {
         pid: u32,
@@ -213,11 +224,13 @@ pub enum MonitorEvent {
 }
 ```
 
+The `filter` field on `SessionInfo` reflects the traffic filter expression from the mirrord config (e.g., header filters for steal). This is surfaced at the session level so the UI can display which traffic subset is being stolen.
+
 **Event emission**: Events are emitted at various points in the intproxy by calling `MonitorTx::emit()`. This method is fire-and-forget: it sends the event into the broadcast channel without waiting for any consumer. If no client is connected to the SSE stream, events are simply dropped.
 
-**Cleanup**: On intproxy exit (normal or crash), the socket file should be removed. The intproxy registers a shutdown hook to delete the file. For crash scenarios, `mirrord webext` detects stale sockets (connection refused) and cleans them up.
+**Cleanup**: On intproxy exit (normal or crash), the socket file should be removed. The intproxy registers a shutdown hook to delete the file. Unix socket files are also cleaned up by the OS when no file descriptor references them. For additional safety, `mirrord ui` detects stale sockets (connection refused) and removes them on startup.
 
-### Component 2: Aggregator (`mirrord webext`)
+### Component 2: Aggregator (`mirrord ui`)
 
 A new subcommand that runs a web server aggregating all local sessions.
 
@@ -225,19 +238,22 @@ A new subcommand that runs a web server aggregating all local sessions.
 
 1. Scan `~/.mirrord/sessions/` for `*.sock` files
 2. For each, attempt to connect and call GET /info
-3. Clean up stale entries (socket exists but connection refused)
+3. Clean up stale entries (socket exists but connection refused — sock files with no fd references are already cleaned by the OS)
 4. Start HTTP server on `127.0.0.1:<port>`
 5. Print URL: `http://localhost:59281`
 6. Open browser (unless `--no-open`)
-7. Watch `~/.mirrord/sessions/` directory for new/removed sockets (via `notify` crate or polling)
+7. Watch `~/.mirrord/sessions/` directory for new/removed sockets or named pipes (via `notify` crate or polling)
 8. For each connected session socket, maintain a tokio task that reads the SSE stream and forwards events to WebSocket clients
 
 **Security model:**
 
 - **Unix socket permissions**: `~/.mirrord/sessions/` has `0700`, socket files have `0600`. Only the user can access their sessions. Same model as Docker's `/var/run/docker.sock`.
 - **Localhost binding**: `127.0.0.1` only, never `0.0.0.0`.
+- **WebSocket authentication**: On startup, `mirrord ui` generates a secret token and includes it as a query parameter in the URL opened in the browser (e.g., `http://localhost:59281?token=<secret>`). The frontend stores this token as a cookie. All WebSocket upgrade requests must include this token (via cookie or query param). This prevents other local applications from connecting to the WebSocket without the token.
+- **CSRF protection**: The API validates the `Origin` header on all mutating requests (POST /kill, etc.) to ensure they originate from the expected localhost origin.
+- **XSS protections**: The embedded React frontend is served with `Content-Security-Policy` headers restricting script sources to `'self'` only. No inline scripts are allowed.
 
-**HTTP endpoints (browser-facing, served by `mirrord webext` on localhost:59281):**
+**HTTP endpoints (browser-facing, served by `mirrord ui` on localhost:59281):**
 
 ```
 GET  /                      → Serve React frontend (index.html)
@@ -261,21 +277,21 @@ Client connects to /ws
   ...
 ```
 
-**Static asset embedding**: The React frontend is embedded in the mirrord CLI binary using `rust-embed`. The `mirrord webext` command serves these assets. If running a development build without embedded assets, it can optionally proxy to a Vite dev server (configurable via `--dev` flag).
+**Static asset embedding**: The React frontend is embedded in the mirrord CLI binary using `rust-embed`. The `mirrord ui` command serves these assets. If running a development build without embedded assets, it can optionally proxy to a Vite dev server (configurable via `--dev` flag).
 
 ### Multi-Session Data Flow
 
 ```
-Session 1 intproxy ──Unix Socket──┐
-                                  │
-Session 2 intproxy ──Unix Socket──┼──► mirrord webext ──HTTP+WS──► Browser
-                                  │
-Session 3 intproxy ──Unix Socket──┘
+Session 1 intproxy ──Unix Socket/Named Pipe──┐
+                                             │
+Session 2 intproxy ──Unix Socket/Named Pipe──┼──► mirrord ui ──HTTP+WS──► Browser
+                                             │
+Session 3 intproxy ──Unix Socket/Named Pipe──┘
 ```
 
-The `mirrord webext` process maintains a `HashMap<SessionId, SessionConnection>` where each `SessionConnection` is a tokio task reading from the Unix socket's SSE stream and forwarding events to the WebSocket broadcast channel.
+The `mirrord ui` process maintains a `HashMap<SessionId, SessionConnection>` where each `SessionConnection` is a tokio task reading from the Unix socket's (or named pipe's) SSE stream and forwarding events to the WebSocket broadcast channel.
 
-When a new socket appears in `~/.mirrord/sessions/`, `mirrord webext` connects to it automatically. When a socket disappears (session ended), the corresponding task is cleaned up and a `session_removed` event is sent to WebSocket clients.
+When a new socket appears in `~/.mirrord/sessions/`, `mirrord ui` connects to it automatically. When a socket disappears (session ended), the corresponding task is cleaned up and a `session_removed` event is sent to WebSocket clients.
 
 ### Performance Impact
 
@@ -285,11 +301,11 @@ When a new socket appears in `~/.mirrord/sessions/`, `mirrord webext` connects t
 - I/O: Unix socket writes are negligible (local IPC)
 - When no client is connected: events are dropped (broadcast channel with no receivers)
 
-**On `mirrord webext`:**
+**On `mirrord ui`:**
 - Aggregates events from all sessions. Memory scales linearly with number of active sessions.
 - WebSocket broadcasts to browser clients add minimal overhead.
 
-**When disabled (`experimental.session_monitor = false`):**
+**When disabled (`api: { enabled: false }`):**
 - Zero overhead. No socket file created, no event tracking in intproxy.
 
 ### Version and License Display
@@ -303,34 +319,34 @@ The UI header shows:
 ## Drawbacks
 [drawbacks]: #drawbacks
 
-1. **Two-process model**: `mirrord webext` is a separate process from the intproxy. Users must explicitly run it. This is intentional (following Aviram's architecture), but some users may expect auto-launch.
+1. **Two-process model**: `mirrord ui` is a separate process from the intproxy. Users must explicitly run it. This is intentional (following Aviram's architecture), but some users may expect auto-launch.
 
-2. **Unix socket limitation**: Unix sockets don't work on Windows. For Windows support (future), we'd need named pipes or TCP with authentication. macOS and Linux are the primary targets.
+2. **Platform-specific IPC**: Unix sockets are used on macOS/Linux; named pipes on Windows. Both are supported but the implementation requires platform-specific code paths.
 
 3. **Binary size increase**: Embedding the React frontend adds ~200-300KB. Small relative to the ~30MB mirrord binary.
 
 4. **Build complexity**: CI needs Node.js to build the frontend before embedding in the Rust binary.
 
-5. **Stale socket cleanup**: If an intproxy crashes without cleaning up its socket, stale files remain. Mitigated by detection and cleanup in `mirrord webext`.
+5. **Stale socket cleanup**: If an intproxy crashes without cleaning up its socket, stale files may remain. Unix sockets are cleaned up when no fd references them. Additionally, `mirrord ui` detects stale sockets (connection refused) and removes them.
 
-6. **Security surface**: Even with Unix permissions and localhost binding, a local attacker with the same UID could connect to the Unix sockets. This is the same threat model as Docker.
+6. **Security surface**: Even with Unix permissions and localhost binding, a local attacker with the same UID could connect to the Unix sockets. This is mitigated by the secret token authentication on the WebSocket. This follows the same threat model as Docker.
 
 ## Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 ### Why Unix sockets + separate UI server (vs embedded HTTP per intproxy)?
 
-An earlier draft of this RFC proposed embedding an HTTP server directly in each intproxy. The Unix socket + `mirrord webext` architecture is better because:
+An earlier draft of this RFC proposed embedding an HTTP server directly in each intproxy. The Unix socket + `mirrord ui` architecture is better because:
 
 - **Multi-session aggregation**: One UI shows all sessions. No need to remember different ports for different sessions.
-- **Security**: Unix socket permissions (0700) provide OS-level access control. The `mirrord webext` server binds to localhost only.
+- **Security**: Unix socket permissions (0700) provide OS-level access control. The `mirrord ui` server binds to localhost only.
 - **Separation of concerns**: The intproxy stays focused on proxying. The UI server is a separate concern.
-- **Resource efficiency**: Only one HTTP server running (the `mirrord webext` process), not one per session.
+- **Resource efficiency**: Only one HTTP server running (the `mirrord ui` process), not one per session.
 
 ### Why not the layer?
 
 The layer runs inside the user's process via LD_PRELOAD. Adding any IPC there would:
-- Compete with the application's event loop
+- Compete with the application's own I/O and runtime (e.g., its async runtime or main loop, if it has one)
 - Risk interfering with the application's own socket usage
 - Not support multi-layer aggregation
 
@@ -340,7 +356,7 @@ A terminal UI (like k9s) is hostile to AI coding agents, which work best with st
 
 ### Why localhost-only HTTP (no TLS)?
 
-The security model relies on Unix socket permissions (0700/0600) for the per-session sockets and localhost-only binding for the `mirrord webext` server. TLS was considered but not implemented for v1 because: (a) self-signed certificates cause browser warnings that are poor UX, (b) localhost binding already prevents remote access, and (c) the session data is not highly sensitive (file paths, DNS queries, connection metadata). This follows a similar model to many local dev tools.
+The security model relies on Unix socket permissions (0700/0600) for the per-session sockets, localhost-only binding for the `mirrord ui` server, and secret token authentication for WebSocket connections. TLS was considered but not implemented for v1 because: (a) self-signed certificates cause browser warnings that are poor UX, (b) localhost binding already prevents remote access, and (c) the session data is not highly sensitive (file paths, DNS queries, connection metadata). This follows a similar model to many local dev tools.
 
 ### Impact of not doing this
 
@@ -351,13 +367,13 @@ mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI a
 
 1. **Event granularity**: Should every individual `read()` syscall generate a MonitorEvent, or should we batch/aggregate? High-throughput applications could generate thousands of file reads per second. Proposal: aggregate counters in the intproxy, emit individual events only for "interesting" operations (first access to a new file path, errors, DNS queries, new connections).
 
-2. **Env var value redaction**: Should env var values ever be shown? Proposal: never by default, with opt-in via `mirrord webext --show-env-values` for debugging.
+2. **Env var value redaction**: Env var key-value pairs are now included in events. Should values be shown in the UI by default? Proposal: redact values by default in the UI, with opt-in via `mirrord ui --show-env-values` for debugging. The API always returns full key-value pairs.
 
 3. **Frontend location in repo**: Options: (a) `mirrord/monitor-ui/` in the main mirrord repo (recommended, since it ships with the CLI binary), (b) separate `mirrord-monitor` repo.
 
-4. **Socket protocol versioning**: How to handle protocol changes between mirrord versions? If a user runs `mirrord webext` v3.166 but has an active session from `mirrord exec` v3.165, the socket protocol must be compatible. Proposal: include a `protocol_version` field in the session info and handle gracefully.
+4. **Socket protocol versioning**: How to handle protocol changes between mirrord versions? If a user runs `mirrord ui` v3.166 but has an active session from `mirrord exec` v3.165, the socket protocol must be compatible. Proposal: include a `protocol_version` field in the session info and handle gracefully.
 
-5. **Windows support**: Unix sockets are not available on Windows. Defer Windows support or use named pipes?
+5. **Windows support**: Named pipes are used on Windows (as shown in the architecture diagram). The implementation requires platform-specific abstractions for the IPC layer.
 
 6. **Session directory on shared machines**: If multiple users share a machine, `~/.mirrord/sessions/` is per-user (different home dirs). Is there a use case for a system-wide sessions directory?
 
@@ -372,7 +388,7 @@ mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI a
 
 4. **Config suggestions**: Based on observed patterns (files read remotely that could be local, ports not receiving traffic), suggest mirrord config improvements directly in the UI.
 
-5. **Session recording**: `mirrord exec --record session.json` saves the event stream to a file. `mirrord webext --replay session.json` replays it in the UI for post-mortem debugging.
+5. **Session recording**: `mirrord exec --record session.json` saves the event stream to a file. `mirrord ui --replay session.json` replays it in the UI for post-mortem debugging.
 
 6. **MCP server**: Expose the session data as an MCP (Model Context Protocol) server that AI coding agents can connect to directly, rather than parsing CLI output.
 
