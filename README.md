@@ -62,6 +62,7 @@ that reference the original.
 Prerequisites:
 - Python3
 - mdbook: `cargo install mdbook`
+- mdbook-mermaid: `cargo install mdbook-mermaid`
 
 ```bash
 

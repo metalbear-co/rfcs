@@ -38,7 +38,8 @@ def main():
         summary.write('[Introduction](introduction.md)\n\n')
         collect(summary, 'text', 0)
 
-    subprocess.call(['mdbook', 'build'])
+    subprocess.check_call(['mdbook-mermaid', 'install', '.'])
+    subprocess.check_call(['mdbook', 'build'])
 
 def collect(summary, path, depth):
     entries = [e for e in os.scandir(path) if e.name.endswith('.md')]
