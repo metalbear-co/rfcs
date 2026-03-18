@@ -365,7 +365,6 @@ mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI a
 
 6. **MCP server**: Expose the session data as an MCP (Model Context Protocol) server that AI coding agents can connect to directly, rather than parsing CLI output.
 
-7. **Metrics export**: `/metrics` Prometheus endpoint on the `mirrord webext` server for integration with existing monitoring stacks.
 
 
 9. **`mirrord up` integration**: When `mirrord up` (docker-compose style multi-service mirroring) is implemented, the session monitor can provide a unified view of all services being mirrored, with per-service drill-down.
