@@ -319,7 +319,7 @@ An earlier draft of this RFC proposed embedding an HTTP server directly in each 
 ### Why not the layer?
 
 The layer runs inside the user's process via LD_PRELOAD. Adding any IPC there would:
-- Compete for the process's event loop
+- Compete with the application's event loop
 - Risk interfering with the application's own socket usage
 - Not support multi-layer aggregation
 
