@@ -292,21 +292,8 @@ A new subcommand that runs a web server aggregating all local sessions.
 **Security model:**
 
 ```mermaid
-flowchart LR
-    subgraph L1["1. File System"]
-        FS["sessions dir: 0700\nsocket files: 0600\nuser-only access"]
-    end
-    subgraph L2["2. Network"]
-        NET["127.0.0.1 only\nno remote access"]
-    end
-    subgraph L3["3. Token Auth"]
-        TOK["secret token in URL\nstored as cookie\nrequired for WebSocket"]
-    end
-    subgraph L4["4. CSRF / XSS"]
-        SEC["Origin header check\nCSP: script-src self"]
-    end
-
-    L1 --> L2 --> L3 --> L4
+flowchart TD
+    A["Layer 1: File System\nsessions dir 0700 · socket files 0600 · user-only"] --> B["Layer 2: Network\n127.0.0.1 only · no remote access"] --> C["Layer 3: Token Auth\nsecret in URL → cookie → required for WebSocket"] --> D["Layer 4: CSRF / XSS\nOrigin header validation · CSP script-src self"]
 ```
 
 - **Unix socket permissions**: `~/.mirrord/sessions/` has `0700`, socket files have `0600`. Only the user can access their sessions. Same model as Docker's `/var/run/docker.sock`.
