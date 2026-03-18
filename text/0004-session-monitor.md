@@ -115,23 +115,34 @@ The system has two layers: session sockets (per-intproxy) and the aggregator/UI 
 
 ```mermaid
 flowchart TD
-    A["**intproxy A**\nnode server.js → checkout-svc\nAPI running inside here"]
-    B["**intproxy B**\npython worker.py → payments-svc\nAPI running inside here"]
-    C["**intproxy C**\ngo run main.go → auth-svc\nAPI running inside here"]
+    A["**intproxy A**\nnode server.js → checkout-svc"]
+    B["**intproxy B**\npython worker.py → payments-svc"]
+    C["**intproxy C**\ngo run main.go → auth-svc"]
 
-    subgraph sessions ["~/.mirrord/sessions/"]
-        S1["aaa111.sock\ndoor into intproxy A"]
-        S2["bbb222.sock\ndoor into intproxy B"]
-        S3["ccc333.sock\ndoor into intproxy C"]
+    subgraph unix ["Unix: ~/.mirrord/sessions/"]
+        S1["aaa111.sock"]
+        S2["bbb222.sock"]
+        S3["ccc333.sock"]
     end
 
-    A -->|creates| S1
-    B -->|creates| S2
-    C -->|creates| S3
+    subgraph windows ["Windows: named pipes"]
+        P1["\\.\pipe\mirrord-aaa111"]
+        P2["\\.\pipe\mirrord-bbb222"]
+        P3["\\.\pipe\mirrord-ccc333"]
+    end
 
-    sessions -->|"reads all .sock files\ncalls GET /info on each"| W
+    A -->|"creates (Unix)"| S1
+    B -->|"creates (Unix)"| S2
+    C -->|"creates (Unix)"| S3
 
-    W["**mirrord webext**\nMerges all sessions into one API\nlocalhost:59281\nGET /api/sessions → returns all 3 sessions"]
+    A -->|"creates (Windows)"| P1
+    B -->|"creates (Windows)"| P2
+    C -->|"creates (Windows)"| P3
+
+    unix -->|"reads .sock files\ncalls GET /info on each"| W
+    windows -->|"reads pipe names\ncalls GET /info on each"| W
+
+    W["**mirrord ui**\nMerges all sessions into one API\nlocalhost:59281\nGET /api/sessions → returns all 3 sessions"]
 
     W --> UI["**Web UI**\n(React)"]
     W --> EXT["**Browser Ext.**\n(Chrome)"]
