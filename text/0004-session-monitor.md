@@ -45,8 +45,6 @@ mirrord is a "black box" to its users. When a developer runs `mirrord exec`, the
 
 6. **AI agent integration** - An AI coding agent queries the webext API to check session health or kill a session after a test run.
 
-7. **Teams discovery (business)** - An OSS developer using `mirrord webext` sees "3 other developers are targeting this service" (locked, requires Teams). They click "Start Free Trial."
-
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
