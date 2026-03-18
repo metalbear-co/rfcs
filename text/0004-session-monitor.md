@@ -357,7 +357,7 @@ mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI a
 
 2. **Session control actions** (Teams): Via the operator API, the UI could offer actions like restart agent, drop sockets, and pause stealing. These would be additional commands sent over the Unix socket and forwarded to the operator.
 
-3. **IDE integration**: VS Code command "mirrord: Open Session Monitor" that either opens the `mirrord webext` URL in a webview or starts `mirrord webext` if not running. IntelliJ equivalent.
+3. **IDE integration**: VS Code command "mirrord: Open UI" that either opens the `mirrord ui` URL in a webview or starts `mirrord ui` if not running. IntelliJ equivalent.
 
 4. **Config suggestions**: Based on observed patterns (files read remotely that could be local, ports not receiving traffic), suggest mirrord config improvements directly in the UI.
 
