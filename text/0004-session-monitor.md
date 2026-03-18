@@ -62,6 +62,30 @@ In IDEs, the command is available as "mirrord: Open UI" which opens the UI in a 
 
 This starts a local web server that discovers and connects to all active mirrord sessions on the machine.
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as mirrord exec
+    participant Intproxy
+    participant Socket as ~/.mirrord/sessions/<id>.sock
+    participant UI as mirrord ui
+    participant Browser
+
+    User->>CLI: mirrord exec -- node server.js
+    CLI->>Intproxy: starts intproxy
+    Intproxy->>Socket: creates Unix socket / named pipe
+    Note over Intproxy,Socket: axum HTTP server listening on socket
+
+    User->>UI: mirrord ui
+    UI->>Socket: scans ~/.mirrord/sessions/ for .sock files
+    UI->>Socket: GET /info (for each socket)
+    Socket-->>UI: SessionInfo JSON
+    UI->>Browser: opens http://localhost:59281?token=<secret>
+    Browser->>UI: GET / (loads React frontend)
+    Browser->>UI: WS /ws (WebSocket upgrade with token)
+    UI-->>Browser: {"type":"sessions","data":[...]}
+```
+
 ### Viewing Sessions
 
 The UI shows all active sessions in one view, with each session displaying its target, runtime, ports, traffic stats, and quick actions (View Details). Kill Session is planned for v2.
@@ -150,86 +174,6 @@ flowchart TD
     W --> EXT["**Browser Ext.**\n(Chrome)"]
 ```
 
-### Startup Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI as mirrord exec
-    participant Intproxy
-    participant Socket as ~/.mirrord/sessions/<id>.sock
-    participant UI as mirrord ui
-    participant Browser
-
-    User->>CLI: mirrord exec -- node server.js
-    CLI->>Intproxy: starts intproxy
-    Intproxy->>Socket: creates Unix socket / named pipe
-    Note over Intproxy,Socket: axum HTTP server listening on socket
-
-    User->>UI: mirrord ui
-    UI->>Socket: scans ~/.mirrord/sessions/ for .sock files
-    UI->>Socket: GET /info (for each socket)
-    Socket-->>UI: SessionInfo JSON
-    UI->>Browser: opens http://localhost:59281?token=<secret>
-    Browser->>UI: GET / (loads React frontend)
-    Browser->>UI: WS /ws (WebSocket upgrade with token)
-    UI-->>Browser: {"type":"sessions","data":[...]}
-```
-
-### Event Flow
-
-```mermaid
-sequenceDiagram
-    participant Layer as Layer (in user app)
-    participant Intproxy
-    participant Broadcast as Broadcast Channel
-    participant SSE as SSE Stream (socket)
-    participant UI as mirrord ui
-    participant WS as WebSocket
-    participant Browser
-
-    Layer->>Intproxy: request (e.g. file read, DNS query)
-    Intproxy->>Intproxy: processes request
-    Intproxy->>Broadcast: MonitorTx::emit(MonitorEvent)
-    Broadcast->>SSE: event pushed to SSE stream
-    SSE->>UI: SSE event received
-    UI->>WS: forward as {"type":"event","session_id":"...","data":{...}}
-    WS->>Browser: WebSocket message
-    Browser->>Browser: React UI updates in real-time
-```
-
-### Security Model
-
-```mermaid
-flowchart TD
-    subgraph perms ["File System Permissions"]
-        DIR["~/.mirrord/sessions/\nPermissions: 0700 (user-only)"]
-        SOCK["<session-id>.sock\nPermissions: 0600 (user-only)"]
-        DIR --> SOCK
-    end
-
-    subgraph network ["Network Binding"]
-        BIND["mirrord ui binds to\n127.0.0.1 only\n(never 0.0.0.0)"]
-    end
-
-    subgraph auth ["Token Authentication"]
-        TOKEN["mirrord ui generates\nsecret token on startup"]
-        URL["Browser opened with\n?token=<secret>"]
-        COOKIE["Token stored as cookie"]
-        WSAUTH["WebSocket upgrade\nrequires valid token"]
-        TOKEN --> URL --> COOKIE --> WSAUTH
-    end
-
-    subgraph csrf ["CSRF / XSS Protection"]
-        ORIGIN["Origin header validated\non mutating requests"]
-        CSP["Content-Security-Policy\nscript-src 'self' only"]
-    end
-
-    perms --> |"OS-level isolation\n(same as Docker socket)"| SOCK
-    network --> |"No remote access"| BIND
-    auth --> |"Prevents unauthorized\nlocal connections"| WSAUTH
-```
-
 ### Component 1: Session Socket (in intproxy)
 
 Each intproxy instance creates a Unix domain socket (or named pipe on Windows) at `~/.mirrord/sessions/<session-id>.sock` on startup, serving an HTTP API via axum.
@@ -272,6 +216,26 @@ pub struct SessionInfo {
 > **Note**: The `session_id` for copy target sessions is controlled by the cluster (operator), not generated locally.
 
 > **Note**: The `mode` field is intentionally omitted. The session's steal/mirror mode and other settings are available in the `config` field, which contains the full mirrord configuration used for this session.
+
+```mermaid
+sequenceDiagram
+    participant Layer as Layer (in user app)
+    participant Intproxy
+    participant Broadcast as Broadcast Channel
+    participant SSE as SSE Stream (socket)
+    participant UI as mirrord ui
+    participant WS as WebSocket
+    participant Browser
+
+    Layer->>Intproxy: request (e.g. file read, DNS query)
+    Intproxy->>Intproxy: processes request
+    Intproxy->>Broadcast: MonitorTx::emit(MonitorEvent)
+    Broadcast->>SSE: event pushed to SSE stream
+    SSE->>UI: SSE event received
+    UI->>WS: forward as {"type":"event","session_id":"...","data":{...}}
+    WS->>Browser: WebSocket message
+    Browser->>Browser: React UI updates in real-time
+```
 
 > **Note**: v1 `MonitorEvent`s represent what the client/layer *requested* (outbound from the client's perspective), not agent responses. For example, a `FileOp` event means the layer asked to read a file remotely, not that the agent returned data. Agent-side response events (latency, errors, payloads) are planned for v2.
 
@@ -328,6 +292,36 @@ A new subcommand that runs a web server aggregating all local sessions.
 8. For each connected session socket, maintain a tokio task that reads the SSE stream and forwards events to WebSocket clients
 
 **Security model:**
+
+```mermaid
+flowchart TD
+    subgraph perms ["File System Permissions"]
+        DIR["~/.mirrord/sessions/\nPermissions: 0700 (user-only)"]
+        SOCK["<session-id>.sock\nPermissions: 0600 (user-only)"]
+        DIR --> SOCK
+    end
+
+    subgraph network ["Network Binding"]
+        BIND["mirrord ui binds to\n127.0.0.1 only\n(never 0.0.0.0)"]
+    end
+
+    subgraph auth ["Token Authentication"]
+        TOKEN["mirrord ui generates\nsecret token on startup"]
+        URL["Browser opened with\n?token=<secret>"]
+        COOKIE["Token stored as cookie"]
+        WSAUTH["WebSocket upgrade\nrequires valid token"]
+        TOKEN --> URL --> COOKIE --> WSAUTH
+    end
+
+    subgraph csrf ["CSRF / XSS Protection"]
+        ORIGIN["Origin header validated\non mutating requests"]
+        CSP["Content-Security-Policy\nscript-src 'self' only"]
+    end
+
+    perms --> |"OS-level isolation\n(same as Docker socket)"| SOCK
+    network --> |"No remote access"| BIND
+    auth --> |"Prevents unauthorized\nlocal connections"| WSAUTH
+```
 
 - **Unix socket permissions**: `~/.mirrord/sessions/` has `0700`, socket files have `0600`. Only the user can access their sessions. Same model as Docker's `/var/run/docker.sock`.
 - **Localhost binding**: `127.0.0.1` only, never `0.0.0.0`.
