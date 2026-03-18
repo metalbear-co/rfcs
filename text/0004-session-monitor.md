@@ -367,6 +367,5 @@ mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI a
 
 7. **Metrics export**: `/metrics` Prometheus endpoint on the `mirrord webext` server for integration with existing monitoring stacks.
 
-8. **Multi-machine aggregation**: A future `mirrord webext --remote` mode that connects to session sockets on remote machines (via SSH tunneling), enabling team-wide session visibility without the operator.
 
 9. **`mirrord up` integration**: When `mirrord up` (docker-compose style multi-service mirroring) is implemented, the session monitor can provide a unified view of all services being mirrored, with per-service drill-down.
