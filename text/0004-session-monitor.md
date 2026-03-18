@@ -21,7 +21,7 @@ Add a local session monitoring system to mirrord with two components: (1) each i
 
 mirrord is a "black box" to its users. When a developer runs `mirrord exec`, they see their application start, but have no visibility into what mirrord is doing behind the scenes. This creates problems:
 
-1. **Debugging is blind** - When something doesn't work (wrong file served, missing env var, traffic not arriving), developers have no way to see what mirrord intercepted, what it forwarded remotely, and what fell back to local. The only option is adding `-v` flags and reading log output.
+1. **Debugging is blind** - When something doesn't work (wrong file served, missing env var, traffic not arriving), developers have no way to see what mirrord intercepted, what it forwarded remotely, and what fell back to local.
 
 2. **No session awareness** - Developers don't know if their session is healthy, how much traffic is flowing, or which remote resources they're accessing.
 
