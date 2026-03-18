@@ -43,7 +43,7 @@ mirrord is a "black box" to its users. When a developer runs `mirrord exec`, the
 
 5. **Session management** - "I forgot to close a mirrord session in another terminal. Let me kill it from the UI."
 
-6. **AI agent integration** - An AI coding agent queries the UI API to check session health or kill a session after a test run.
+6. **AI agent integration** - An AI coding agent queries the UI API to check session health after a test run.
 
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -64,7 +64,7 @@ This starts a local web server that discovers and connects to all active mirrord
 
 ### Viewing Sessions
 
-The UI shows all active sessions in one view, with each session displaying its target, runtime, ports, traffic stats, and quick actions (View Details, Kill Session).
+The UI shows all active sessions in one view, with each session displaying its target, runtime, ports, traffic stats, and quick actions (View Details). Kill Session is planned for v2.
 
 Clicking "View Details" on a session expands it to show:
 - Real-time event log (file ops, DNS, network, errors)
@@ -101,7 +101,7 @@ mirrord ui --sessions-dir /path   # Custom sessions directory
 
 ### Interaction with Existing Features
 
-The session monitoring system is purely observational for v1. It does not modify mirrord's behavior, except for the kill endpoint on the session socket which terminates a session's intproxy process and its associated layers.
+The session monitoring system is purely observational for v1. It does not modify mirrord's behavior. The kill endpoint (`POST /kill`) is planned for v2.
 
 The intproxy lifecycle is extended slightly:
 - On startup, the intproxy creates a Unix socket (or named pipe on Windows) at `~/.mirrord/sessions/<session-id>.sock`
@@ -150,6 +150,86 @@ flowchart TD
     W --> EXT["**Browser Ext.**\n(Chrome)"]
 ```
 
+### Startup Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as mirrord exec
+    participant Intproxy
+    participant Socket as ~/.mirrord/sessions/<id>.sock
+    participant UI as mirrord ui
+    participant Browser
+
+    User->>CLI: mirrord exec -- node server.js
+    CLI->>Intproxy: starts intproxy
+    Intproxy->>Socket: creates Unix socket / named pipe
+    Note over Intproxy,Socket: axum HTTP server listening on socket
+
+    User->>UI: mirrord ui
+    UI->>Socket: scans ~/.mirrord/sessions/ for .sock files
+    UI->>Socket: GET /info (for each socket)
+    Socket-->>UI: SessionInfo JSON
+    UI->>Browser: opens http://localhost:59281?token=<secret>
+    Browser->>UI: GET / (loads React frontend)
+    Browser->>UI: WS /ws (WebSocket upgrade with token)
+    UI-->>Browser: {"type":"sessions","data":[...]}
+```
+
+### Event Flow
+
+```mermaid
+sequenceDiagram
+    participant Layer as Layer (in user app)
+    participant Intproxy
+    participant Broadcast as Broadcast Channel
+    participant SSE as SSE Stream (socket)
+    participant UI as mirrord ui
+    participant WS as WebSocket
+    participant Browser
+
+    Layer->>Intproxy: request (e.g. file read, DNS query)
+    Intproxy->>Intproxy: processes request
+    Intproxy->>Broadcast: MonitorTx::emit(MonitorEvent)
+    Broadcast->>SSE: event pushed to SSE stream
+    SSE->>UI: SSE event received
+    UI->>WS: forward as {"type":"event","session_id":"...","data":{...}}
+    WS->>Browser: WebSocket message
+    Browser->>Browser: React UI updates in real-time
+```
+
+### Security Model
+
+```mermaid
+flowchart TD
+    subgraph perms ["File System Permissions"]
+        DIR["~/.mirrord/sessions/\nPermissions: 0700 (user-only)"]
+        SOCK["<session-id>.sock\nPermissions: 0600 (user-only)"]
+        DIR --> SOCK
+    end
+
+    subgraph network ["Network Binding"]
+        BIND["mirrord ui binds to\n127.0.0.1 only\n(never 0.0.0.0)"]
+    end
+
+    subgraph auth ["Token Authentication"]
+        TOKEN["mirrord ui generates\nsecret token on startup"]
+        URL["Browser opened with\n?token=<secret>"]
+        COOKIE["Token stored as cookie"]
+        WSAUTH["WebSocket upgrade\nrequires valid token"]
+        TOKEN --> URL --> COOKIE --> WSAUTH
+    end
+
+    subgraph csrf ["CSRF / XSS Protection"]
+        ORIGIN["Origin header validated\non mutating requests"]
+        CSP["Content-Security-Policy\nscript-src 'self' only"]
+    end
+
+    perms --> |"OS-level isolation\n(same as Docker socket)"| SOCK
+    network --> |"No remote access"| BIND
+    auth --> |"Prevents unauthorized\nlocal connections"| WSAUTH
+```
+
 ### Component 1: Session Socket (in intproxy)
 
 Each intproxy instance creates a Unix domain socket (or named pipe on Windows) at `~/.mirrord/sessions/<session-id>.sock` on startup, serving an HTTP API via axum.
@@ -166,7 +246,7 @@ Each intproxy instance creates a Unix domain socket (or named pipe on Windows) a
 GET  /health          → Health check (returns 200 OK)
 GET  /info            → Session info (returns SessionInfo JSON)
 GET  /events          → SSE stream of MonitorEvents
-POST /kill            → Kill session (terminates intproxy + layers)
+POST /kill            → Kill session (planned for v2, not implemented in v1)
 ```
 
 **SessionInfo** (returned by GET /info):
@@ -192,6 +272,8 @@ pub struct SessionInfo {
 > **Note**: The `session_id` for copy target sessions is controlled by the cluster (operator), not generated locally.
 
 > **Note**: The `mode` field is intentionally omitted. The session's steal/mirror mode and other settings are available in the `config` field, which contains the full mirrord configuration used for this session.
+
+> **Note**: v1 `MonitorEvent`s represent what the client/layer *requested* (outbound from the client's perspective), not agent responses. For example, a `FileOp` event means the layer asked to read a file remotely, not that the agent returned data. Agent-side response events (latency, errors, payloads) are planned for v2.
 
 **MonitorEvent** (streamed via SSE on GET /events):
 
@@ -260,7 +342,7 @@ GET  /                      → Serve React frontend (index.html)
 GET  /assets/*              → Static JS/CSS assets
 GET  /api/sessions          → List all active sessions (JSON)
 GET  /api/sessions/:id      → Session detail + current state (JSON)
-POST /api/sessions/:id/kill → Kill session (forwards to socket's POST /kill)
+POST /api/sessions/:id/kill → Kill session (planned for v2, forwards to socket's POST /kill)
 GET  /api/version           → mirrord version, OSS/Teams status
 WS   /ws                    → WebSocket: aggregated events from all sessions
 WS   /ws/:id                → WebSocket: events from a specific session
@@ -384,7 +466,7 @@ mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI a
 
 2. **Session control actions** (Teams): Via the operator API, the UI could offer actions like restart agent, drop sockets, and pause stealing. These would be additional commands sent over the Unix socket and forwarded to the operator.
 
-3. **IDE integration**: VS Code command "mirrord: Open UI" that either opens the `mirrord ui` URL in a webview or starts `mirrord ui` if not running. IntelliJ equivalent.
+3. **IDE integration**: VS Code command "mirrord: Open UI" that triggers the UI loading directly from the IDE — either opening the `mirrord ui` URL in a webview or starting `mirrord ui` if not already running. IntelliJ equivalent.
 
 4. **Config suggestions**: Based on observed patterns (files read remotely that could be local, ports not receiving traffic), suggest mirrord config improvements directly in the UI.
 
@@ -392,6 +474,4 @@ mirrord remains a black box. No growth surface for OSS-to-Teams conversion. AI a
 
 6. **MCP server**: Expose the session data as an MCP (Model Context Protocol) server that AI coding agents can connect to directly, rather than parsing CLI output.
 
-
-
-9. **`mirrord up` integration**: When `mirrord up` (docker-compose style multi-service mirroring) is implemented, the session monitor can provide a unified view of all services being mirrored, with per-service drill-down.
+7. **`mirrord up` integration**: When `mirrord up` (docker-compose style multi-service mirroring) is implemented, the session monitor can provide a unified view of all services being mirrored, with per-service drill-down.
