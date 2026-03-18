@@ -293,34 +293,27 @@ A new subcommand that runs a web server aggregating all local sessions.
 
 **Security model:**
 
-```mermaid
-flowchart TD
-    subgraph perms ["File System Permissions"]
-        DIR["~/.mirrord/sessions/\nPermissions: 0700 (user-only)"]
-        SOCK["<session-id>.sock\nPermissions: 0600 (user-only)"]
-        DIR --> SOCK
-    end
-
-    subgraph network ["Network Binding"]
-        BIND["mirrord ui binds to\n127.0.0.1 only\n(never 0.0.0.0)"]
-    end
-
-    subgraph auth ["Token Authentication"]
-        TOKEN["mirrord ui generates\nsecret token on startup"]
-        URL["Browser opened with\n?token=<secret>"]
-        COOKIE["Token stored as cookie"]
-        WSAUTH["WebSocket upgrade\nrequires valid token"]
-        TOKEN --> URL --> COOKIE --> WSAUTH
-    end
-
-    subgraph csrf ["CSRF / XSS Protection"]
-        ORIGIN["Origin header validated\non mutating requests"]
-        CSP["Content-Security-Policy\nscript-src 'self' only"]
-    end
-
-    perms --> |"OS-level isolation\n(same as Docker socket)"| SOCK
-    network --> |"No remote access"| BIND
-    auth --> |"Prevents unauthorized\nlocal connections"| WSAUTH
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SECURITY LAYERS                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. File System        ~/.mirrord/sessions/  (0700)         │
+│                        <session-id>.sock     (0600)         │
+│                        → Only current user can access       │
+│                                                             │
+│  2. Network            mirrord ui → 127.0.0.1 only          │
+│                        → No remote access possible          │
+│                                                             │
+│  3. Token Auth         mirrord ui generates secret token    │
+│                        → Browser opened with ?token=<secret>│
+│                        → Token stored as cookie             │
+│                        → WebSocket requires valid token     │
+│                                                             │
+│  4. CSRF/XSS           Origin header validated              │
+│                        Content-Security-Policy: 'self' only │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 - **Unix socket permissions**: `~/.mirrord/sessions/` has `0700`, socket files have `0600`. Only the user can access their sessions. Same model as Docker's `/var/run/docker.sock`.
