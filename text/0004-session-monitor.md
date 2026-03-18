@@ -62,7 +62,7 @@ This starts a local web server that discovers and connects to all active mirrord
 
 ### Viewing Sessions
 
-The UI shows all active sessions in one view, with each session displaying its target, PID, runtime, ports, traffic stats, and quick actions (View Details, Kill Session).
+The UI shows all active sessions in one view, with each session displaying its target, runtime, ports, traffic stats, and quick actions (View Details, Kill Session).
 
 Clicking "View Details" on a session expands it to show:
 - Real-time event log (file ops, DNS, network, errors)
