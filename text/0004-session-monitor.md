@@ -293,27 +293,22 @@ A new subcommand that runs a web server aggregating all local sessions.
 
 **Security model:**
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    SECURITY LAYERS                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. File System        ~/.mirrord/sessions/  (0700)         │
-│                        <session-id>.sock     (0600)         │
-│                        → Only current user can access       │
-│                                                             │
-│  2. Network            mirrord ui → 127.0.0.1 only          │
-│                        → No remote access possible          │
-│                                                             │
-│  3. Token Auth         mirrord ui generates secret token    │
-│                        → Browser opened with ?token=<secret>│
-│                        → Token stored as cookie             │
-│                        → WebSocket requires valid token     │
-│                                                             │
-│  4. CSRF/XSS           Origin header validated              │
-│                        Content-Security-Policy: 'self' only │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph L1["1. File System"]
+        FS["sessions dir: 0700\nsocket files: 0600\nuser-only access"]
+    end
+    subgraph L2["2. Network"]
+        NET["127.0.0.1 only\nno remote access"]
+    end
+    subgraph L3["3. Token Auth"]
+        TOK["secret token in URL\nstored as cookie\nrequired for WebSocket"]
+    end
+    subgraph L4["4. CSRF / XSS"]
+        SEC["Origin header check\nCSP: script-src self"]
+    end
+
+    L1 --> L2 --> L3 --> L4
 ```
 
 - **Unix socket permissions**: `~/.mirrord/sessions/` has `0700`, socket files have `0600`. Only the user can access their sessions. Same model as Docker's `/var/run/docker.sock`.
