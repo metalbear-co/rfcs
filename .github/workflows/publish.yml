@@ -5,6 +5,7 @@ on:
       - main
 env:
   MDBOOK_VERSION: 0.5.2
+  MDBOOK_MERMAID_VERSION: 0.17.0
 
 jobs:
   build:
@@ -13,11 +14,12 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    - name: Install mdbook
+    - name: Setup Rust
+      uses: metalbear-co/setup-rust-toolchain@009cda47e1b529982a00627a40eda87b4215035a
+    - name: Install mdbook and mdbook-mermaid
       run: |
-        mkdir mdbook
-        curl -Lf https://github.com/rust-lang/mdBook/releases/download/v${{ env.MDBOOK_VERSION }}/mdbook-v${{ env.MDBOOK_VERSION }}-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=./mdbook
-        echo `pwd`/mdbook >> $GITHUB_PATH
+        cargo install mdbook --version ${{ env.MDBOOK_VERSION }} --locked
+        cargo install mdbook-mermaid --version ${{ env.MDBOOK_MERMAID_VERSION }} --locked
     - name: Generate Book
       run: |
         ./generate-book.py
