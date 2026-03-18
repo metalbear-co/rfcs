@@ -154,7 +154,7 @@ flowchart TD
 
 Each intproxy instance creates a Unix domain socket (or named pipe on Windows) at `~/.mirrord/sessions/<session-id>.sock` on startup, serving an HTTP API via axum.
 
-**Session ID**: A UUID generated in `execution.rs` at startup, passed to the intproxy via the `MIRRORD_SESSION_ID` environment variable. The same ID is used for the socket filename and the operator session.
+**Session ID**: For the local API socket, a UUID is generated in `execution.rs` at startup and used as the socket filename. This local ID is separate from the operator session ID — for copy target sessions, the operator/cluster controls the session ID, so we must not overwrite or reuse it. The local socket ID is passed to the intproxy via the `MIRRORD_SESSION_ID` environment variable and is used only for local IPC (socket filename + API responses).
 
 **Socket directory**: `~/.mirrord/sessions/` is created with `0700` permissions (user-only access), following the Docker socket model. Socket files are created with `0600` permissions. This ensures only the current user can access their own sessions.
 
