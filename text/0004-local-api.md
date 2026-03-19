@@ -245,7 +245,8 @@ pub enum MonitorEvent {
     },
     PortSubscription {
         port: u16,
-        mode: String,       // "steal", "mirror"
+        mode: String,              // "steal", "mirror"
+        filter: Option<String>,    // HTTP filter expression, if configured
     },
     EnvVar {
         vars: Vec<(String, String)>,  // key-value pairs of fetched env vars
