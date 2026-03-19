@@ -90,15 +90,7 @@ sequenceDiagram
 
 The UI shows all active sessions in one view, with each session displaying its target, runtime, ports, traffic stats, and quick actions (View Details). Kill Session is planned for v2.
 
-Clicking "View Details" on a session expands it to show:
-- Real-time event log (file ops, DNS, network, errors)
-- Traffic stats breakdown (HTTP methods, status codes, latency)
-- File operations detail (paths, read/write, remote vs local)
-- DNS query log (hostname, resolved IPs, latency)
-- Port subscriptions detail
-- Environment variables fetched (keys only, values redacted by default)
-- Outgoing connections (which external services the app talks to)
-- mirrord config for this session
+Clicking "View Details" on a session expands it to show a real-time event log (file ops, DNS, network, errors). Additional detail views (traffic stats, file operations, DNS queries, port subscriptions, env vars, outgoing connections, config) to be discussed in later PRs.
 
 ### Configuration
 
