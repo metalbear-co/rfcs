@@ -168,7 +168,7 @@ flowchart TD
 
 Each intproxy instance creates a Unix domain socket (or named pipe on Windows) at `~/.mirrord/sessions/<session-id>.sock` on startup, serving an HTTP API via axum.
 
-**Session ID**: For the local API socket, a UUID is generated in `execution.rs` at startup and used as the socket filename. This local ID is separate from the operator session ID — for copy target sessions, the operator/cluster controls the session ID, so we must not overwrite or reuse it. The local socket ID is passed to the intproxy via the `MIRRORD_SESSION_ID` environment variable and is used only for local IPC (socket filename + API responses).
+**Session ID**: A single session ID is used everywhere (local socket filename, API responses, and operator). For Teams users (with operator), the `OperatorSession.id` is reused for the local socket filename. For OSS users (no operator, `DirectKubernetes` path), a UUID is generated in `execution.rs` at startup. In both cases, the session ID is passed to the intproxy via the `MIRRORD_SESSION_ID` environment variable.
 
 **Socket directory**: `~/.mirrord/sessions/` is created with `0700` permissions (user-only access), following the Docker socket model. Socket files are created with `0600` permissions. This ensures only the current user can access their own sessions.
 
@@ -198,12 +198,11 @@ pub struct SessionInfo {
     mirrord_version: String,
     is_operator: bool,
     processes: Vec<ProcessInfo>, // sessions can have multiple processes/PIDs
-    config: serde_json::Value,   // full mirrord config for this session (replaces mode field)
-    filter: Option<String>,      // traffic filter expression, if configured
+    config_path: Option<String>,  // path to the mirrord config file used for this session
 }
 ```
 
-> **Note**: The `mode` field is intentionally omitted. The session's steal/mirror mode and other settings are available in the `config` field, which contains the full mirrord configuration used for this session.
+> **Note**: Fields like `mode` and `filter` are intentionally omitted. The session's steal/mirror mode, traffic filters, and other settings can be read from the config file at `config_path`.
 
 ```mermaid
 sequenceDiagram
@@ -257,8 +256,6 @@ pub enum MonitorEvent {
     LayerDisconnected,
 }
 ```
-
-The `filter` field on `SessionInfo` reflects the traffic filter expression from the mirrord config (e.g., header filters for steal). This is surfaced at the session level so the UI can display which traffic subset is being stolen.
 
 **Event emission**: Events are emitted at various points in the intproxy by calling `MonitorTx::emit()`. This method is fire-and-forget: it sends the event into the broadcast channel without waiting for any consumer. If no client is connected to the SSE stream, events are simply dropped.
 
