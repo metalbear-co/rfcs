@@ -9,7 +9,7 @@
 ## Summary
 [summary]: #summary
 
-Unify the charts and operator repos by moving the contents of charts into the operator. Also, release the charts whenever the operator is released.
+Unify the charts and operator repositories by moving the contents of charts into the operator. Also, release the charts whenever the operator is released.
 
 ## Motivation
 [motivation]: #motivation
@@ -17,7 +17,7 @@ Unify the charts and operator repos by moving the contents of charts into the op
 Changes to the operator frequently require changes to be made to the charts. Some features require simultaneous changes in the operator, charts and mirrord (3 separate PRs) as well as docs and config docs (2 more separate PRs). This:
 1. Makes local development and testing more difficult
 2. Increases admin time overhead for PR authors and reviewers
-2. Can result in the repos being out of sync with eachother
+2. Can result in the repositories being out of sync with eachother
 3. Is annoying
 
 [COR-1109](https://linear.app/metalbear/issue/COR-1109/automate-configurationmd-update) reduces the number of PRs to 4, and by merging the charts and the operator, it can be reduced to 3.
@@ -47,7 +47,7 @@ The contents of `metalbear-co/charts` is a copy of `metalbear-co/operator/charts
 
 - Releasing the operator should always trigger a charts release
   - Impact: developers will always have to update all changelogs and operator dependencies even when charts do not change otherwise
-- Code will not be committed to the charts repo UNLESS it is pushed by the operator release, ever. otherwise, repos would have to sync both ways
+- Code will not be committed to the charts repository UNLESS it is pushed by the operator release, ever. Otherwise, the repositories would have to sync both ways
   - Impact: it must be very clear or enforced that code cannot be committed directly to the charts repo
 
 ### Repository structure:
@@ -67,16 +67,10 @@ The contents of `metalbear-co/charts` is a copy of `metalbear-co/operator/charts
 ### New release process:
 
 - To release the operator and charts:
-  - Create a release PR on the operator repo as before, with the addition of version bumps and changelog updates in the charts dir
-  - When merged, create a GitHub release with semver version tag
+  - Create a release PR on the operator repository as before, bumping the versions in `Cargo.toml` and each `chart.yaml`, all to the same new version
+    - Update the changelog as before (the operator and charts now all share a changelog)
+  - When merged, create a GitHub release tagged with the new version, containing the changelog with the Internal section omitted
   - Check that the operator is released and the charts are released with up to date code
-- To release the charts only:
-  - Create a release PR on the operator repo in the same way as a release PR created in the charts repo
-  - When merged, manually dispatch the new charts release workflow from the operator repo actions
-  - Check that the charts are released with up to date code
-  - **Edge case**: Consider the following: `charts-only release commit merges -> another commit that touches the charts dir merges -> the new charts release workflow updates the charts repo`
-      - This is not possible in the operator release process, since the release depends on a manually tagged commit
-      - Possibly avoidable with a special commit name pattern, eg. `charts-release-YY-MM-DD`.
 
 ### Release flow:
 
@@ -93,11 +87,11 @@ To minimise impact if something goes wrong:
 
 - 1. Copy the charts source code to the operator repo, within its own directory
   - Trigger charts CI from the operator CI when files in charts dir change
-    - Move charts CI to the operator repo and run using the current (unreleased) operator image
+    - Move charts CI to the operator repository and run using the current (unreleased) operator image
   - Adjust files changed checks to account for charts/ non charts files
   - Unify chart version for operator and license-server charts (allows for single charts changelog)
 - 2. In the operator repo, add a new job that will:
-  - Push current state of charts source code to the charts repo main
+  - Push current state of charts source code to the charts repository main
   - Trigger a release there
 - 3. Move any open PRs/issues of ours from the charts to the operator repo, leave any PRs/issues opened by the users
   - Stop new PRs from being opened
@@ -120,36 +114,20 @@ To minimise impact if something goes wrong:
   - Changed files checks for the operator may need to be altered to exclude the charts directory
 
 
-## Rationale and alternatives
-[rationale-and-alternatives]: #rationale-and-alternatives
-
-<!--- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not choosing them?
-- What is the impact of not doing this?-->
-
-## Prior art
-[prior-art]: #prior-art
-
-<!--Discuss prior art, both the good and the bad, in relation to this proposal. Examples include:
-
-- Does this feature exist in similar products?
-- What lessons can we learn from how competitors handle similar problems?
-- Are there any published blog posts or papers that discuss this approach?-->
-
 ## Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
 _Resolve before implementation_
 
-- Will there any negative changes to development experience for the charts or operator?
-- Will the 3 changelogs be kept separate? Can we combine them into 1?
-  - How will this work during charts only releases?
-  - Either: releases are always operator and charts AND changelogs can be unified
-  - or releases can be charts only or both AND changelogs must stay separate
-- ~~Would there ever be a reason for code to be pushed to the charts repo when a release is not happening?~~
+- ~~Will there any negative changes to development experience for the charts or operator?~~
+- ~~Will the 3 changelogs be kept separate? Can we combine them into 1?~~
+  - ~~How will this work during charts only releases?~~
+  - ~~Either: releases are always operator and charts AND changelogs can be unified~~
+  - ~~or releases can be charts only or both AND changelogs must stay separate~~
+- ~~Would there ever be a reason for code to be pushed to the charts repository when a release is not happening?~~
   - ~~For example, if there are changes to the (public) charts README.md~~
   - ~~Can we account for/ allow/ disallow this?~~
-- ~~How do we ensure that updates to the charts code that merge _after_ a release PR dont get included in code pushed to the charts repo when performing a charts-only release?~~
+- ~~How do we ensure that updates to the charts code that merge _after_ a release PR dont get included in code pushed to the charts repository when performing a charts-only release?~~
   - ~~ie. we only push code up to and including release commit (may require specific commit name)~~
 - ~~How do we avoid charts CI failures on release PRs for the operator and charts?~~
   - ~~The charts CI will attempt to install the chart being released, which depends on the operator version being released, which doesn't exist yet~~
@@ -164,5 +142,4 @@ _Resolve before implementation_
     - ~~Would we need a way to point to the specific commit to be released?~~
 - Move to a monorepo: eventually, we could move all of our code into one repo
   - When considering this in the past, issues raised included reluctance to use git submodules and concerns about code that generates or manages licenses being public
-- Publish the charts changelogs to the website (if changelogs are kept separate)
-  - (see [operator changelog](https://github.com/metalbear-co/docs-changelog))
+- Release a nightly version of the operator and charts every day, with a version tag like `X.Y.Z-nightly.yyyy.mm.dd`
