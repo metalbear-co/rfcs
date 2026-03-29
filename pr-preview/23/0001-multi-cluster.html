@@ -1,0 +1,828 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>0001-multi-cluster - The MetalBear RFC Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-5e65b751.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-14134204.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The MetalBear RFC Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/metalbear-co/rfcs" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <ul>
+<li>Feature Name: <code>multi_cluster</code></li>
+<li>Start Date: 2026-01-09</li>
+<li>Last Updated: 2026-02-09</li>
+<li>RFC PR: <a href="https://github.com/metalbear-co/rfcs/pull/4">metalbear-co/rfcs#0001</a></li>
+</ul>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p>Enable developers to run mirrord against pods in any Kubernetes cluster they have access to, without switching their local kube context. Workflows that span across multiple clusters become available to use via mirrord.</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<h3 id="the-problem"><a class="header" href="#the-problem">The Problem</a></h3>
+<p>Today mirrord only intercepts traffic within the active cluster. In HA or multi-cluster mesh environments, there is no guarantee where requests are routed. The current workaround is to run two separate sessions for two clusters and attach the debugger to the desired one. This is frustrating and unreliable.</p>
+<h3 id="use-cases"><a class="header" href="#use-cases">Use Cases</a></h3>
+<p><strong>Multi-region traffic testing</strong>: A developer wants to test their local service against traffic from pods running in us-east-1, eu-west-1, and ap-southeast-1 clusters simultaneously.</p>
+<p><strong>Centralized access</strong>: An organization’s security policy requires developers to connect through a central management cluster that has credentials to reach workload clusters. The developer’s machine cannot directly reach workload clusters.</p>
+<h2 id="guide-level-explanation"><a class="header" href="#guide-level-explanation">Guide-level explanation</a></h2>
+<h3 id="demo-videos"><a class="header" href="#demo-videos">Demo Videos</a></h3>
+<details>
+<summary><strong>Demo 1: mirrord Multi-Cluster for Kubernetes: Traffic Stealing (Primary + Remote)</strong></summary>
+<p><iframe src="https://youtu.be/d7D1d-B0_vI?si=mPqfFAe2v-bwda9b" width="100%" height="400" allowfullscreen=""></iframe></p>
+
+</details>
+<details>
+<summary><strong>Demo 2: mirrord Multi-Cluster for Kubernetes: Traffic Mirroring (Primary + Remote)</strong></summary>
+<p><em><iframe src="https://youtu.be/hWNnlqo18uw?si=WD5vNZk2K2vqiz24" width="100%" height="400" allowfullscreen=""></iframe></em></p>
+
+</details>
+<details>
+<summary><strong>Demo 3: mirrord Multi-Cluster for Kubernetes: Postgres Test - Primary as Management-Only</strong></summary>
+<p><em><iframe src="https://youtu.be/v8POUAFOKs4?si=mTRSWxYwJhydC4mG" width="100%" height="400" allowfullscreen=""></iframe></em></p>
+
+</details>
+<details>
+<summary><strong>Demo 4: mirrord Multi-Cluster for Kubernetes: Postgres Test - Direct Connection to Remote Cluster</strong></summary>
+<p><em><iframe src="https://youtu.be/h77LBVFb_10?si=6wHq8I2gJNblc0Jm" width="100%" height="400" allowfullscreen=""></iframe></em></p>
+
+</details>
+<details>
+<summary><strong>Demo 5: mirrord Multi-Cluster for Kubernetes: Postgres Test - Primary as Default </strong></summary>
+<p><em><iframe src="https://youtu.be/ccbjy13EEgQ?si=hnPWu_JN7tpvwSdg" width="100%" height="400" allowfullscreen=""></iframe></em></p>
+
+</details>
+<h3 id="solution-overview"><a class="header" href="#solution-overview">Solution Overview</a></h3>
+<p>The design is built on the existing mirrord operator. Each operator supports both single-cluster and multi-cluster sessions. A private interface allows one cluster to coordinate sessions across others.</p>
+<p>For multi-cluster sessions, a “primary” cluster drives sessions in remote clusters using their local operators over this private interface.</p>
+<h3 id="understanding-cluster-roles"><a class="header" href="#understanding-cluster-roles">Understanding Cluster Roles</a></h3>
+<p>When setting up multi-cluster mirrord, each cluster takes on one or more roles. Understanding these roles is fundamental to understanding how the system works.</p>
+<h4 id="the-primary-cluster"><a class="header" href="#the-primary-cluster">The Primary Cluster</a></h4>
+<p>The Primary cluster is where the user connects if he wants to use multi cluster. When a developer runs <code>mirrord exec</code>, their CLI talks to the Primary cluster’s operator. This is the “entry point” for all multi-cluster operations.</p>
+<p>The Primary cluster runs a component we call the <strong>Envoy</strong>. The Envoy is an orchestrator - it doesn’t do the actual traffic interception work, but it coordinates all the clusters that do.</p>
+<p>In single-cluster mirrord, there is no Envoy. The operator directly manages the session and agent. In multi-cluster, we need this extra layer because something has to coordinate multiple operators across multiple clusters.</p>
+<h4 id="workload-clusters"><a class="header" href="#workload-clusters">Workload Clusters</a></h4>
+<p>Workload clusters are where your actual application pods run. These clusters have agents that intercept traffic, read files, capture environment variables, and do all the things mirrord normally does.</p>
+<p>In single-cluster mirrord, the one cluster you connect to is the workload cluster. In multi-cluster, you define which clusters have workloads.</p>
+<h4 id="the-default-cluster"><a class="header" href="#the-default-cluster">The Default Cluster</a></h4>
+<p>Some operations in mirrord are “stateful” - meaning they need to return consistent data. For example:</p>
+<ul>
+<li><strong>Environment variables</strong>: If your app calls <code>os.Getenv("DATABASE_URL")</code>, it should get ONE answer, not different answers from different clusters.</li>
+<li><strong>File operations</strong>: If the app reads <code>/etc/config.yaml</code>, it should get ONE file, not a merge of files from multiple clusters.</li>
+<li><strong>Outgoing connections</strong>: If the app connects to a database, it should connect to ONE database.</li>
+<li><strong>Database branching</strong>: If we create a database branch for testing, we create ONE branch, not one per cluster.</li>
+</ul>
+<p>The Default cluster is the single cluster we designate to handle all these stateful operations. When your app does any of these operations, the request goes ONLY to the Default cluster’s agent.</p>
+<p>In single-cluster mirrord, you don’t need to think about this - there’s only one cluster, so all operations go there. In multi-cluster, we need to explicitly choose one cluster to be the “source of truth” for stateful operations.</p>
+<h4 id="management-only-mode"><a class="header" href="#management-only-mode">Management-Only Mode</a></h4>
+<p>Sometimes we want the Primary cluster to ONLY orchestrate, without running any workloads itself. This is called “Management-Only” mode.</p>
+<p>Why would we want this? Consider a scenario where we have a management cluster that handles all our DevOps tooling, and separate clusters for our actual applications. The management cluster has the permissions to access all other clusters, but it doesn’t run the application pods.</p>
+<p>In this case, we set <code>PRIMARY_MANAGEMENT_ONLY=true</code>. This means that we want only to orchestrate.</p>
+<p>Important: If Primary is Management-Only, you MUST set a different cluster as Default. Because Management-Only means “no resources here”, but Default means “stateful operations happen here”. You can’t have stateful operations on a cluster with no resources.</p>
+<h3 id="developer-experience"><a class="header" href="#developer-experience">Developer Experience</a></h3>
+<p>From a developer’s perspective, multi-cluster mirrord is completely transparent. Developers do not need to know which cluster is primary or which is the default. They use mirrord exactly the same way as single-cluster.</p>
+<h4 id="how-developers-use-it"><a class="header" href="#how-developers-use-it">How Developers Use It</a></h4>
+<p>The workflow is identical to single-cluster:</p>
+<ol>
+<li>
+<p><strong>Authenticate with the Primary cluster</strong> - The developer’s local machine is bound to it through their kubeconfig.</p>
+</li>
+<li>
+<p><strong>Run mirrord</strong> - Execute <code>mirrord exec ./myapp</code> as usual.</p>
+</li>
+<li>
+<p><strong>The operator handles the rest</strong> - Based on the operator’s configuration, it determines whether to use single-cluster or multi-cluster mode.</p>
+</li>
+</ol>
+<p>The CLI automatically detects multi-cluster from the operator’s configuration and behaves accordingly. No special flags or configuration are needed from the developer.</p>
+<h4 id="what-developers-get"><a class="header" href="#what-developers-get">What Developers Get</a></h4>
+<p>With multi-cluster enabled, developers benefit from:</p>
+<ul>
+<li>
+<p><strong>Incoming traffic from all clusters</strong> - Traffic mirroring and stealing work across all workload clusters. If a request arrives at any cluster, the developer’s local app receives it.</p>
+</li>
+<li>
+<p><strong>Consistent environment</strong> - Environment variables, files, and database connections all come from one source (the Default cluster), ensuring predictable behavior.</p>
+</li>
+<li>
+<p><strong>Database branching</strong> - Branches are created once in the Default cluster and used consistently, regardless of which cluster handles traffic.</p>
+</li>
+<li>
+<p><strong>Single session</strong> - No need to manage multiple sessions or switch contexts. The complexity is hidden behind one session ID.</p>
+</li>
+</ul>
+<h4 id="configuration"><a class="header" href="#configuration">Configuration</a></h4>
+<p>The developer’s mirrord configuration file does not need any multi-cluster-specific settings:</p>
+<pre><code class="language-json">{
+  "target": "deployment/myapp"
+}
+</code></pre>
+<p>The operator determines single-cluster or multi-cluster mode based on its installation configuration, not the developer’s config file. This keeps the developer experience simple and consistent.</p>
+<h3 id="installation"><a class="header" href="#installation">Installation</a></h3>
+<p>This section covers how to do the initial setup. The setup involves selecting a primary cluster, installing the operator with multi-cluster enabled, and configuring access to all remote clusters.</p>
+<h4 id="authentication-methods"><a class="header" href="#authentication-methods">Authentication Methods</a></h4>
+<p>Each remote cluster must specify an <code>authType</code> that determines how the primary operator authenticates to it. This field is <strong>required</strong> — the Helm chart validates it at install time and fails if missing or not one of the supported values. There are three authentication methods:</p>
+<ol>
+<li>
+<p><strong>EKS IAM</strong> (<code>authType: eks</code>) — For AWS EKS clusters. The primary operator generates short-lived tokens using its IAM role (via IRSA). No secrets to manage — tokens are generated locally and auto-refreshed every 10 minutes. Requires an EKS Access Entry on each remote cluster and <code>sa.roleArn</code> on the primary operator.</p>
+</li>
+<li>
+<p><strong>Bearer Token</strong> (<code>authType: bearerToken</code>) — Uses ServiceAccount tokens that are automatically refreshed via the TokenRequest API. The operator auto-refreshes the token before expiration. A Secret with the initial token is needed on the primary cluster.</p>
+</li>
+<li>
+<p><strong>mTLS</strong> (<code>authType: mtls</code>) — For clusters that require client certificate authentication. You provide <code>tlsCrt</code> and <code>tlsKey</code> in the cluster Secret. Certificates are NOT auto-refreshed.</p>
+</li>
+</ol>
+<h4 id="remote-cluster-setup"><a class="header" href="#remote-cluster-setup">Remote Cluster Setup</a></h4>
+<p>Each remote cluster needs the mirrord operator installed with <code>multiClusterMember</code> enabled. This automatically creates the ServiceAccount, ClusterRole, and ClusterRoleBinding needed for the primary operator to manage sessions on that cluster.</p>
+<h5 id="bearer-token--mtls-clusters"><a class="header" href="#bearer-token--mtls-clusters">Bearer Token / mTLS Clusters</a></h5>
+<p>Install the operator on the remote cluster:</p>
+<pre><code class="language-bash">  --set operator.multiClusterMember=true
+</code></pre>
+<p>This creates a <code>mirrord-operator-envoy</code> ServiceAccount with the necessary permissions. After installation, generate an initial token for the primary cluster:</p>
+<pre><code class="language-bash">kubectl create token mirrord-operator-envoy -n mirrord --duration=24h
+</code></pre>
+<p>This initial token is only needed for the first setup. Once the primary operator starts, it automatically refreshes tokens using the TokenRequest API before they expire.</p>
+<h5 id="eks-iam-clusters"><a class="header" href="#eks-iam-clusters">EKS IAM Clusters</a></h5>
+<p>EKS IAM auth lets the primary operator authenticate to remote EKS clusters using its IAM role instead of ServiceAccount tokens. No Secrets to manage — the operator generates short-lived tokens from its IAM identity.</p>
+<p>Setup has two parts: <strong>AWS</strong> (IAM/EKS configuration) and <strong>Operator</strong> (Helm values).</p>
+<h6 id="aws"><a class="header" href="#aws">AWS</a></h6>
+<p><strong>1. Associate an OIDC Identity Provider with the primary cluster</strong></p>
+<p>The primary EKS cluster’s OIDC issuer must be registered as an IAM Identity Provider. This is what allows the operator pod to assume an IAM role via IRSA. Skip this if already done.</p>
+<pre><code class="language-bash">eksctl utils associate-iam-oidc-provider \
+  --cluster &lt;PRIMARY_CLUSTER_NAME&gt; --region &lt;REGION&gt; --approve
+</code></pre>
+<p><strong>2. Create an EKS Access Entry on each remote cluster</strong></p>
+<p>This maps the operator’s IAM role to a Kubernetes group on the remote cluster. No IAM policy is attached — permissions come from Kubernetes RBAC.</p>
+<pre><code class="language-bash">aws eks create-access-entry \
+  --cluster-name &lt;REMOTE_CLUSTER_NAME&gt; \
+  --principal-arn arn:aws:iam::&lt;ACCOUNT_ID&gt;:role/&lt;IAM_ROLE_NAME&gt; \
+  --type STANDARD \
+  --kubernetes-groups mirrord-operator-envoy
+</code></pre>
+<p><strong>3. Create (or update) the IAM role trust policy</strong></p>
+<p>The IAM role needs a trust policy that allows the primary operator’s ServiceAccount to assume it via IRSA. Replace the placeholders with your account ID and the OIDC issuer ID of the <strong>primary</strong> cluster.</p>
+<pre><code class="language-json">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::&lt;ACCOUNT_ID&gt;:oidc-provider/oidc.eks.&lt;REGION&gt;.amazonaws.com/id/&lt;OIDC_ISSUER_ID&gt;"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.&lt;REGION&gt;.amazonaws.com/id/&lt;OIDC_ISSUER_ID&gt;:sub": "system:serviceaccount:mirrord:mirrord-operator",
+          "oidc.eks.&lt;REGION&gt;.amazonaws.com/id/&lt;OIDC_ISSUER_ID&gt;:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+</code></pre>
+<p>You can find the OIDC issuer ID from the primary cluster:</p>
+<pre><code class="language-bash">aws eks describe-cluster --name &lt;PRIMARY_CLUSTER_NAME&gt; --region &lt;REGION&gt; \
+  --query "cluster.identity.oidc.issuer" --output text
+# Returns: https://oidc.eks.&lt;REGION&gt;.amazonaws.com/id/&lt;OIDC_ISSUER_ID&gt;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> The role doesn’t need any IAM policies (no <code>iam:*</code>, <code>s3:*</code>, etc.). All permissions come from Kubernetes RBAC via the Access Entry. The trust policy only controls <em>who can assume the role</em>.</p>
+</blockquote>
+<h6 id="operator"><a class="header" href="#operator">Operator</a></h6>
+<p><strong>Remote clusters</strong> — install with the IAM group binding:</p>
+<pre><code class="language-yaml">operator:
+  multiClusterMember: true
+  multiClusterMemberIamGroup: mirrord-operator-envoy
+</code></pre>
+<p>The <code>multiClusterMemberIamGroup</code> creates ClusterRoleBindings that grant the specified Kubernetes group the same permissions as the ServiceAccount-based setup. When set, the ServiceAccount-based ClusterRoleBindings are skipped since authentication comes from IAM instead of ServiceAccount tokens.</p>
+<p><strong>Primary cluster</strong> — set <code>sa.roleArn</code> so the operator pod can assume the IAM role via IRSA:</p>
+<pre><code class="language-yaml">sa:
+  roleArn: "arn:aws:iam::&lt;ACCOUNT_ID&gt;:role/&lt;IAM_ROLE_NAME&gt;"
+</code></pre>
+<p>This annotates the operator’s ServiceAccount with <code>eks.amazonaws.com/role-arn</code>, which tells the EKS pod identity webhook to inject AWS credentials into the pod. The same IAM role is used for all EKS IAM remote clusters — each remote cluster maps that role via its own Access Entry (step 2 above).</p>
+<h4 id="rbac--how-permissions-work"><a class="header" href="#rbac--how-permissions-work">RBAC — How Permissions Work</a></h4>
+<p>When the primary operator connects to a remote cluster, it needs permissions to do things there (list targets, create sessions, check health, etc.). These permissions are set up on each remote cluster using Kubernetes RBAC.</p>
+<p>The chart creates two ClusterRoles (permission definitions):</p>
+<ol>
+<li>
+<p><strong><code>mirrord-operator-envoy</code></strong> — Permissions for general operations: listing targets, managing parent sessions, syncing database branches, reading pods and deployments, and running health checks.</p>
+</li>
+<li>
+<p><strong><code>mirrord-operator-envoy-remote</code></strong> — Permissions to create and manage child <code>MirrordClusterSession</code> resources. This is what actually allows the primary operator to start mirrord sessions on a remote cluster. This ClusterRole is only granted on member clusters, not on the primary, because the primary never receives child sessions — it only creates them on remote clusters.</p>
+</li>
+</ol>
+<p>A ClusterRole by itself doesn’t grant anything — it only defines what actions are possible. To actually give those permissions to someone, we create ClusterRoleBindings that connect the ClusterRole to an identity.</p>
+<p><strong>All remote clusters</strong> need <code>multiClusterMember=true</code>. This is always required regardless of auth type. It tells the chart to create the ClusterRoles, the <code>mirrord-operator-envoy</code> ServiceAccount, and the ClusterRoleBindings that grant both roles to this ServiceAccount.</p>
+<p><strong>EKS IAM clusters</strong> additionally need <code>multiClusterMemberIamGroup</code> set (e.g., <code>mirrord-operator-envoy</code>). This tells the chart to also create ClusterRoleBindings that grant both roles to a Kubernetes Group instead of just the ServiceAccount. EKS maps the primary operator’s IAM role to this group via the Access Entry. When <code>multiClusterMemberIamGroup</code> is set, the ServiceAccount-based bindings are skipped because the identity comes from IAM, not from a ServiceAccount token.</p>
+<p>So in practice:</p>
+<ul>
+<li><strong>Bearer token / mTLS remote</strong>: <code>multiClusterMember=true</code></li>
+<li><strong>EKS IAM remote</strong>: <code>multiClusterMember=true</code> + <code>multiClusterMemberIamGroup=mirrord-operator-envoy</code></li>
+</ul>
+<h4 id="primary-cluster-helm-configuration"><a class="header" href="#primary-cluster-helm-configuration">Primary Cluster Helm Configuration</a></h4>
+<p>Install the operator on the primary cluster with multi-cluster configuration. Each remote cluster requires an <code>authType</code> field. You can either:</p>
+<ol>
+<li>Provide cluster credentials directly in the Helm values (Helm creates the secrets automatically)</li>
+<li>Create the secrets manually and let the operator discover them</li>
+</ol>
+<pre><code class="language-yaml">operator:
+  multiCluster:
+    # Enable multi-cluster mode
+    enabled: true
+
+    # Logical name of this cluster
+    clusterName: "primary"
+
+    # Default cluster for stateful operations (env vars, files, db branching)
+    defaultCluster: "staging-cluster"
+
+    # Set to true if primary cluster has no workloads (management-only)
+    managementOnly: true
+
+    # Cluster configuration
+    # Each key is the real cluster name as you know it (e.g. the EKS cluster name,
+    # the kube context name, etc.). The operator uses this name to identify the cluster.
+    clusters:
+      # Bearer token authentication
+      staging-cluster:
+        authType: bearerToken
+        server: "https://api.staging.example.com:6443"
+        caData: "LS0tLS1CRUdJTi..."  # Base64-encoded CA certificate
+        bearerToken: "eyJhbGciOiJS..."  # Initial token from `kubectl create token`
+        isDefault: true
+
+      # EKS IAM authentication
+      my-eks-cluster:
+        authType: eks
+        region: eu-north-1
+        server: "https://ABCDEF1234567890.gr7.eu-north-1.eks.amazonaws.com"
+        caData: "LS0tLS1CRUdJTi..."  # Base64-encoded CA certificate (required for EKS)
+
+      # mTLS authentication
+      on-prem-cluster:
+        authType: mtls
+        server: "https://api.onprem.example.com:6443"
+        caData: "LS0tLS1CRUdJTi..."  # Base64-encoded CA certificate
+        tlsCrt: "LS0tLS1CRUdJTi..."  # Base64-encoded client certificate PEM
+        tlsKey: "LS0tLS1CRUdJTi..."  # Base64-encoded client private key PEM
+
+# Required for EKS IAM auth (see EKS IAM Clusters section above)
+sa:
+  roleArn: "arn:aws:iam::&lt;ACCOUNT_ID&gt;:role/&lt;IAM_ROLE_NAME&gt;"
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> The cluster key names in the <code>clusters</code> map should match the real cluster names. For EKS clusters this is especially important — the operator uses the key as the EKS cluster name when signing IAM tokens. EKS IAM clusters don’t need a <code>bearerToken</code> (the operator generates tokens from its IAM role).</p>
+</blockquote>
+<h4 id="where-data-is-stored"><a class="header" href="#where-data-is-stored">Where Data Is Stored</a></h4>
+<p>When you provide cluster configuration in the Helm values, the chart splits it into two places:</p>
+<ul>
+<li><strong>ConfigMap</strong> (<code>clusters-config.yaml</code>): non-sensitive cluster configuration — <code>name</code>, <code>server</code>, <code>caData</code>, <code>authType</code>, <code>region</code>, <code>isDefault</code>, <code>namespace</code>.</li>
+<li><strong>Secret</strong> (<code>mirrord-cluster-&lt;name&gt;</code>): sensitive credentials only — <code>bearerToken</code>, <code>tls.crt</code>, <code>tls.key</code>. Only created if bearer token or mTLS credentials are provided.</li>
+</ul>
+<p>For EKS IAM clusters, no Secret is created — everything is in the ConfigMap since authentication is through IAM.</p>
+<h4 id="manual-secret-creation"><a class="header" href="#manual-secret-creation">Manual Secret Creation</a></h4>
+<p>Alternatively, you can create the Secret manually outside of Helm. The Secret must be labeled with <code>operator.metalbear.co/remote-cluster-credentials=true</code> and named <code>mirrord-cluster-&lt;cluster-name&gt;</code>. The cluster configuration (server, authType, etc.) still needs to be provided via Helm values or the <code>clusters-config.yaml</code> ConfigMap.</p>
+<p>For Bearer Token authentication:</p>
+<pre><code class="language-yaml">apiVersion: v1
+kind: Secret
+metadata:
+  name: mirrord-cluster-staging-cluster
+  namespace: mirrord
+  labels:
+    operator.metalbear.co/remote-cluster-credentials: "true"
+type: Opaque
+stringData:
+  bearerToken: "eyJhbGciOiJS..."
+</code></pre>
+<p>For mTLS authentication:</p>
+<pre><code class="language-yaml">apiVersion: v1
+kind: Secret
+metadata:
+  name: mirrord-cluster-on-prem-cluster
+  namespace: mirrord
+  labels:
+    operator.metalbear.co/remote-cluster-credentials: "true"
+type: Opaque
+stringData:
+  tls.crt: "LS0tLS1CRUdJTi..."  # Client certificate PEM
+  tls.key: "LS0tLS1CRUdJTi..."  # Client private key PEM
+</code></pre>
+<p>Note: EKS IAM clusters do NOT need a Secret — they authenticate using the operator’s IAM role and only need the cluster configuration in the ConfigMap.</p>
+<h4 id="verify-the-connection"><a class="header" href="#verify-the-connection">Verify the Connection</a></h4>
+<pre><code class="language-sh">kubectl --context {PRIMARY_CLUSTER} get mirrordoperators operator -o yaml
+</code></pre>
+<p>You need to have something similar, that will show you the clusters that are available and their status. If they are successfully connected you will see <code>license_fingerprint</code> and <code>operator_version</code>, if not there will be an error field there.</p>
+<pre><code class="language-yaml">apiVersion: operator.metalbear.co/v1
+kind: MirrordOperator
+metadata:
+  name: operator
+spec:
+  copy_target_enabled: true
+  default_namespace: default
+  features:
+  - ProxyApi
+  license:
+    expire_at: "2026-08-07"
+    fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+    name: Oaks of Rogalin`s Enterprise License
+    organization: Oaks of Rogalin
+    subscription_id: 2c8d96be-c3bf-458c-9d35-a0642c2c2a77
+  operator_version: 3.137.0
+  protocol_version: 1.25.0
+  supported_features:
+  - ProxyApi
+  - CopyTarget
+  - CopyTargetExcludeContainers
+  - LayerReconnect
+  - ExtendableUserCredentials
+  - BypassCiCertificateVerification
+  - SqsQueueSplitting
+  - SqsQueueSplittingDirect
+  - MultiClusterPrimary
+status:
+  connected_clusters:
+  - connected:
+      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+      operator_version: 3.137.0
+    lastCheck: "2026-01-27T09:22:55.824115967+00:00"
+    name: remote-1
+  - connected:
+      license_fingerprint: S1hgumDqNoyDarUX7k31ALtxcOuJ9qhlc+HfJQUV4CE
+      operator_version: 3.137.0
+    lastCheck: "2026-01-27T09:22:55.766848498+00:00"
+    name: remote-2
+  copy_targets: []
+  sessions: []
+  statistics:
+    dau: 0
+    mau: 0
+</code></pre>
+<h4 id="token-refresh"><a class="header" href="#token-refresh">Token Refresh</a></h4>
+<p>Token refresh behavior depends on the authentication method:</p>
+<p><strong>Bearer Token</strong> (<code>authType: bearerToken</code>):</p>
+<ol>
+<li>On startup, the operator reads all cluster secrets and builds an in-memory connection for each cluster</li>
+<li>It parses the JWT token to determine its original lifetime (from <code>exp</code> and <code>iat</code> claims)</li>
+<li>It monitors the token expiration and requests new tokens using the TokenRequest API</li>
+<li>The refresh happens with a buffer before expiration to ensure uninterrupted connectivity</li>
+<li>New tokens maintain the same lifetime as the original token</li>
+</ol>
+<p>You only need to generate tokens once during initial setup. The operator handles all subsequent renewals automatically.</p>
+<p><strong>EKS IAM</strong> (<code>authType: eks</code>):</p>
+<ol>
+<li>The operator generates a presigned <code>GetCallerIdentity</code> STS URL using its IAM role credentials (acquired via IRSA)</li>
+<li>This presigned URL is base64-encoded and used as a Kubernetes bearer token (the <code>k8s-aws-v1.</code> prefixed token format that EKS expects)</li>
+<li>Tokens are regenerated every 10 minutes — well within the 15-minute presigned URL validity window</li>
+<li>No Secrets are involved — credentials come from the pod’s IAM role</li>
+</ol>
+<p><strong>mTLS</strong> (<code>authType: mtls</code>):
+Certificates are NOT auto-refreshed. You are responsible for rotating the client certificate and key in the cluster Secret before they expire.</p>
+<h2 id="reference-level-explanation"><a class="header" href="#reference-level-explanation">Reference-level explanation</a></h2>
+<h3 id="the-parent-child-session-model"><a class="header" href="#the-parent-child-session-model">The Parent-Child Session Model</a></h3>
+<p>In single-cluster mirrord, we have a Custom Resource (CR) called <code>MirrordClusterSession</code>. This represents a single mirrord session with a single agent in a single cluster. When the CLI connects, the operator creates this CR, spawns an agent, and the session is active.</p>
+<p>In multi-cluster, we need something more. We introduce a new CR called <code>MirrordMultiClusterSession</code>. This is like a “parent” session that coordinates multiple “child” sessions.</p>
+<h4 id="why-do-we-need-a-parent-session"><a class="header" href="#why-do-we-need-a-parent-session">Why Do We Need a Parent Session?</a></h4>
+<p>The CLI expects to interact with ONE session. It doesn’t want to manage multiple session IDs, multiple WebSocket connections, or worry about which cluster does what. From the CLI’s perspective, it’s just one mirrord session.</p>
+<p>But internally, we need a session in each workload cluster. Each cluster needs its own <code>MirrordClusterSession</code> so that cluster’s operator can spawn an agent and handle requests like the usually does.</p>
+<p>The parent <code>MirrordMultiClusterSession</code> presents one session ID to the CLI, while internally managing child sessions across multiple clusters.</p>
+<p>This is different from single-cluster where one <code>MirrordClusterSession</code> is enough. In multi-cluster, the parent session acts as a coordinator of multiple child sessions, each of which looks like a normal single-cluster session to its respective operator.</p>
+<h4 id="the-naming-convention"><a class="header" href="#the-naming-convention">The Naming Convention</a></h4>
+<p>Child sessions follow a simple naming pattern. If the parent session is called <code>mc-4dbe55ab68bba16c</code>, then the child sessions are named by appending the cluster name: <code>mc-4dbe55ab68bba16c-remote-1</code> for the remote-1 cluster, <code>mc-4dbe55ab68bba16c-remote-2</code> for remote-2, and so on.</p>
+<p>This naming makes it easy to identify which parent a child belongs to, and makes cleanup straightforward since we can find all children by their prefix.</p>
+<h3 id="the-multiclustersessionmanager"><a class="header" href="#the-multiclustersessionmanager">The MultiClusterSessionManager</a></h3>
+<p>The <code>MultiClusterSessionManager</code> is the controller that manages <code>MirrordMultiClusterSession</code> resources. It lives in the Primary cluster’s operator and is responsible for the entire lifecycle of multi-cluster sessions.</p>
+<p>In single-cluster mirrord, session management is handled by the <code>BaseController</code>. The <code>MultiClusterSessionManager</code> follows similar patterns but adds the complexity of coordinating across clusters.</p>
+<h4 id="the-reconciliation-loop"><a class="header" href="#the-reconciliation-loop">The Reconciliation Loop</a></h4>
+<p>The controller runs a “reconciliation” function whenever something changes. This function looks at the current state of a session and decides what to do next.</p>
+<p>The session goes through several phases. It starts as “Initializing” when just created - this is when we need to create child sessions in all workload clusters and potentially create database branches. It moves to “Pending” once we’ve started creating child sessions but not all are ready yet. It becomes “Ready” when all child sessions are active. It can become “Failed” if something goes wrong, or “Terminating” when being deleted.</p>
+<h4 id="cr-and-in-memory-state"><a class="header" href="#cr-and-in-memory-state">CR and In-Memory State</a></h4>
+<p>We maintain session state in two places: the <code>MirrordMultiClusterSession</code> CR and an in-memory <code>DashMap</code>. The CR is our source of truth - it survives operator restarts and is visible via kubectl. The in-memory map is a performance cache that avoids slow Kubernetes API calls when routing WebSocket messages. Every time the controller reconciles a session, it syncs the in-memory map from the CR, ensuring they stay consistent. When cleaning up, we always read from the CR status (not memory) because if the operator restarted, the memory would be empty but the CR still knows which child sessions exist.</p>
+<h3 id="the-multiclusterrouter"><a class="header" href="#the-multiclusterrouter">The MultiClusterRouter</a></h3>
+<p>The MultiClusterRouter is one of the most important components in multi-cluster mirrord. It’s what makes multi-cluster feel like single-cluster to the CLI and intproxy.</p>
+<h4 id="what-it-does"><a class="header" href="#what-it-does">What It Does</a></h4>
+<p>In single-cluster mirrord, the operator has a component called <code>AgentRouter</code>. The AgentRouter manages communication between the CLI/intproxy and the agent. It receives messages from the client, forwards them to the agent, and sends responses back. It presents an interface called <code>AgentConnection</code> which has a sender channel (to send messages to the agent) and a receiver channel (to receive messages from the agent).</p>
+<p>The MultiClusterRouter does the same thing, but for multiple agents across multiple clusters. It presents the same <code>AgentConnection</code> interface, so the rest of the operator code doesn’t need to know it’s dealing with multi-cluster. This is intentional as we want to reuse as much existing code as possible.</p>
+<h4 id="how-it-routes-messages"><a class="header" href="#how-it-routes-messages">How It Routes Messages</a></h4>
+<p>When the router receives a message from the client, it needs to decide where to send it. This decision is based on the type of operation.</p>
+<p>Stateful operations - file reads/writes, environment variable requests, outgoing TCP/UDP connections, DNS lookups - go ONLY to the Default cluster. This ensures consistency. If the app reads an environment variable, it always gets the same answer because it always comes from the same cluster.</p>
+<p>Traffic operations - things like mirror and steal requests - go to ALL workload clusters. This makes sense because traffic can arrive at any cluster, so all agents need to know about traffic interception rules.</p>
+<p>The code that makes this decision is simple. We have a function <code>is_stateful_operation</code> that checks the message type:</p>
+<pre><code class="language-rust">pub fn is_stateful_operation(msg: &amp;ClientMessage) -&gt; bool {
+    matches!(
+        msg,
+        ClientMessage::FileRequest(_)
+            | ClientMessage::GetEnvVarsRequest(_)
+            | ClientMessage::GetAddrInfoRequest(_)
+            | ClientMessage::GetAddrInfoRequestV2(_)
+            | ClientMessage::Vpn(_)
+    )
+}
+
+pub fn is_outgoing_traffic(msg: &amp;ClientMessage) -&gt; bool {
+    matches!(
+        msg,
+        ClientMessage::TcpOutgoing(_) | ClientMessage::UdpOutgoing(_)
+    )
+}</code></pre>
+<p>Both stateful operations and outgoing traffic go to the Default cluster only. Outgoing traffic (TCP/UDP) is routed to one cluster to prevent duplicate responses — all clusters share the same external services, so one agent can handle all outgoing requests. Everything else (traffic mirroring/stealing, control messages) is broadcast to all workload clusters.</p>
+<h4 id="merging-responses"><a class="header" href="#merging-responses">Merging Responses</a></h4>
+<p>Messages come back from multiple agents. The router merges all these responses into a single stream that goes back to the client. The client doesn’t know responses are coming from multiple sources - it just sees a stream of messages like it would in single-cluster.</p>
+<h4 id="comparison-with-single-cluster"><a class="header" href="#comparison-with-single-cluster">Comparison with Single-Cluster</a></h4>
+<p>In single-cluster, the <code>AgentRouter</code> talks to one agent. In multi-cluster, the <code>MultiClusterRouter</code> talks to multiple operators (which each have their own agent). But both present the same <code>AgentConnection</code> interface. This means the <code>LayerHandler</code> and other components that use <code>AgentConnection</code> work unchanged in multi-cluster.</p>
+<h3 id="connection-health-and-ping-pong"><a class="header" href="#connection-health-and-ping-pong">Connection Health and Ping-Pong</a></h3>
+<p>Each operator needs to know if the connection to its agent is still alive. It does this by sending <code>Ping</code> messages every few seconds. The agent responds with <code>Pong</code>. If the operator doesn’t receive a pong for 60 seconds, it assumes something is wrong and terminates the agent.</p>
+<h4 id="the-problem-in-multi-cluster"><a class="header" href="#the-problem-in-multi-cluster">The Problem in Multi-Cluster</a></h4>
+<p>In multi-cluster, there are multiple operators (one per cluster), each with its own agent. The CLI sends ping messages, and the Primary operator’s router decides where to send them.</p>
+<p>If pings only go to one cluster (the Default/Primary cluster), the other clusters never receive any pings. Their operators wait, receive nothing for 60 seconds, and then kill their agents. This is why remote agents were disappearing after exactly 60 seconds.</p>
+<h4 id="the-solution"><a class="header" href="#the-solution">The Solution</a></h4>
+<p>Ping messages are broadcast to ALL clusters. Every cluster receives the ping, every agent responds with pong, and every operator knows its connection is alive. The CLI receives multiple pong responses (one per cluster), but that’s fine - it just means all clusters are healthy.</p>
+<h4 id="websocket-keep-alive"><a class="header" href="#websocket-keep-alive">WebSocket Keep-Alive</a></h4>
+<p>The Primary operator also sends low-level WebSocket ping frames to each remote operator every 30 seconds. This keeps the network connection itself alive and helps detect if a remote cluster becomes unreachable.</p>
+<h3 id="the-session-lifecycle"><a class="header" href="#the-session-lifecycle">The Session Lifecycle</a></h3>
+<p>Let’s walk through what happens from session creation to cleanup, comparing with single-cluster where relevant.</p>
+<h4 id="step-by-step-example"><a class="header" href="#step-by-step-example">Step-by-Step Example</a></h4>
+<p>Here is the full flow of a multi-cluster session from start to finish. The developer runs <code>mirrord exec ./myapp</code> targeting <code>deployment/myapp</code>, with the Primary cluster configured to orchestrate two workload clusters (<code>cluster-a</code> and <code>cluster-b</code>), where <code>cluster-a</code> is the Default cluster.</p>
+<p><strong>Session Creation</strong></p>
+<ol>
+<li>The developer runs <code>mirrord exec ./myapp</code>. The CLI connects to the Primary cluster’s operator.</li>
+<li>The CLI detects multi-cluster mode from the operator’s configuration. It does <strong>not</strong> resolve the target locally — target resolution happens later on each workload cluster.</li>
+<li>If the developer has database branching configured, the CLI creates branch CRs first, waits for them to be ready, and collects the branch names. See the Database Branching step-by-step below. If no branching is configured, this step is skipped.</li>
+<li>The CLI builds <code>ConnectParams</code> containing branch names, SQS configuration, and other session parameters. It opens a request to the Primary operator to create a multi-cluster session.</li>
+<li>The Primary operator creates a <code>MirrordMultiClusterSession</code> CR with phase <code>Initializing</code> and returns the session ID to the CLI.</li>
+</ol>
+<p><strong>Initialization</strong></p>
+<ol>
+<li>The <code>MultiClusterSessionManager</code> controller sees the new CR and starts reconciliation. For an <code>Initializing</code> session, it spawns a background task.</li>
+<li>The background task iterates over the configured workload clusters (<code>cluster-a</code> and <code>cluster-b</code>). For each cluster, it connects to that cluster’s operator using the configured authentication method (bearer token, EKS IAM, or mTLS).</li>
+<li>On each workload cluster, the Primary operator creates a child <code>MirrordClusterSession</code> CR. The child session name follows the pattern <code>mc-&lt;parent-id&gt;-&lt;cluster-name&gt;</code> (e.g. <code>mc-4dbe55ab68bba16c-cluster-a</code>). The child spec includes the target (<code>deployment/myapp</code>), namespace, and <code>ConnectParams</code>. Branch names and SQS config are only forwarded to the Default cluster (<code>cluster-a</code>).</li>
+<li>Each remote cluster’s operator processes the child CR as a normal single-cluster session — it resolves the target (finds the pod for <code>deployment/myapp</code>), spawns an agent, and marks the child session as <code>Ready</code>.</li>
+</ol>
+<p><strong>Session Becomes Ready</strong></p>
+<ol>
+<li>As each child session becomes ready, the Primary operator updates the parent CR’s status with the child session name, cluster, and readiness.</li>
+<li>Once all child sessions are ready, the parent CR’s phase changes from <code>Initializing</code> to <code>Ready</code>.</li>
+<li>The CLI sees the session is ready and establishes a WebSocket connection to the Primary operator.</li>
+<li>The Primary operator creates a <code>MultiClusterRouter</code> for this session, which presents the same <code>AgentConnection</code> interface as single-cluster.</li>
+</ol>
+<p><strong>Active Session</strong></p>
+<ol>
+<li>Messages flow through the <code>MultiClusterRouter</code>. Stateful operations (env vars, file reads, DNS, outgoing connections) go only to the Default cluster (<code>cluster-a</code>). Traffic operations (mirror/steal) are broadcast to all workload clusters (<code>cluster-a</code> and <code>cluster-b</code>).</li>
+<li>A background heartbeat task updates the <code>connectedTimestamp</code> on the parent CR every 10 seconds.</li>
+<li>Ping messages are broadcast to all clusters so every agent knows the connection is alive.</li>
+</ol>
+<p><strong>Session Cleanup</strong></p>
+<ol>
+<li>The developer’s application exits. The WebSocket closes and the heartbeat task stops.</li>
+<li>The <code>connectedTimestamp</code> stops being updated. The controller reconciles and calculates the time since the last heartbeat.</li>
+<li>After 60 seconds (the default TTL) without a heartbeat, the controller deletes the parent CR.</li>
+<li>Deleting the CR triggers the Kubernetes finalizer. The finalizer reads child session information from the CR status (not from memory, in case the operator restarted).</li>
+<li>For each child session, the Primary operator connects to the respective remote cluster and deletes the child <code>MirrordClusterSession</code> CR. The remote operator cleans up the agent.</li>
+<li>After all children are deleted, the finalizer is removed from the parent CR and Kubernetes completes the deletion.</li>
+</ol>
+<h4 id="cli-creates-a-session"><a class="header" href="#cli-creates-a-session">CLI Creates a Session</a></h4>
+<p>The user runs <code>mirrord exec</code>. The CLI sends a request to the Primary operator asking to create a multi-cluster session. The request includes the target alias (like “deployment.myapp”) and the mirrord configuration.</p>
+<p>In single-cluster, the CLI sends a similar request, and the operator immediately creates a <code>MirrordClusterSession</code> and starts spawning an agent.</p>
+<p>In multi-cluster, the operator creates a <code>MirrordMultiClusterSession</code> CR with phase “Initializing” and returns the session ID to the CLI. The actual work happens asynchronously.</p>
+<h4 id="initialization"><a class="header" href="#initialization">Initialization</a></h4>
+<p>The controller sees the new CR and starts the reconciliation process. For an “Initializing” session, it spawns a background task to do the actual work.</p>
+<p>Note: if the developer is using database branching, the branches are already created before session creation. The CLI creates branch CRs on the Primary cluster, the <code>DbBranchSyncController</code> syncs them to the Default cluster, and once ready the CLI receives the branch names back. The CLI then sends these branch names via <code>ConnectParams</code> when creating the session — the same flow as single-cluster. See the Database Branching section for details.</p>
+<p>The controller creates child sessions in each workload cluster. For each cluster, it connects to that cluster’s operator and creates a <code>MirrordClusterSession</code> CR. The child session spec includes the target (which pod or deployment) and the namespace. Branch names and SQS configuration are passed via <code>ConnectParams</code> when the primary connects to each remote operator — the same mechanism the CLI uses in single-cluster.</p>
+<p>We then wait for each child session to become ready, meaning its agent has spawned and is connected.</p>
+<h4 id="parent-status-update"><a class="header" href="#parent-status-update">Parent Status Update</a></h4>
+<p>As each child session becomes ready, we update the parent CR’s status. The status contains a map of all child sessions with their names, readiness, and any errors. Once all children are ready, we set the parent’s phase to “Ready”.</p>
+<p>In single-cluster, there’s no parent status to update - the single session’s status is enough.</p>
+<h4 id="cli-connects-via-websocket"><a class="header" href="#cli-connects-via-websocket">CLI Connects via WebSocket</a></h4>
+<p>Once the session is Ready, the CLI establishes a WebSocket connection to the Primary operator. The operator looks up the session in the in-memory map and creates a <code>MultiClusterRouter</code> to handle message routing.</p>
+<p>In single-cluster, the operator creates an <code>AgentRouter</code> instead. But both return an <code>AgentConnection</code> interface, so the code that handles the WebSocket doesn’t need to know the difference.</p>
+<h4 id="active-session"><a class="header" href="#active-session">Active Session</a></h4>
+<p>While the session is active, the MultiClusterRouter routes messages to the appropriate clusters. Stateful operations go to the Default cluster. Traffic operations go to all workload clusters.</p>
+<p>A background task periodically updates the <code>connectedTimestamp</code> in the CR. This happens every 10 seconds. This timestamp is our “heartbeat” - it tells the controller the session is still in use.</p>
+<p>In single-cluster, a similar mechanism exists but uses an in-memory reference count (<code>UseGuard</code>). In multi-cluster, we use CR timestamps because they survive operator restarts and work in HA setups with multiple operator replicas.</p>
+<h4 id="client-disconnects"><a class="header" href="#client-disconnects">Client Disconnects</a></h4>
+<p>When the application exits, the WebSocket closes. The heartbeat task stops updating <code>connectedTimestamp</code>.</p>
+<h4 id="ttl-expiration"><a class="header" href="#ttl-expiration">TTL Expiration</a></h4>
+<p>The controller continues reconciling the session. On each reconciliation, it calculates how long since the last heartbeat. If more than 60 seconds have passed (the default TTL), it deletes the session CR.</p>
+<p>In single-cluster, cleanup happens when the last <code>UseGuard</code> reference is dropped. In multi-cluster, we can’t rely on in-memory references because of HA and restarts, so we use TTL-based cleanup instead.</p>
+<h4 id="cleanup-via-finalizer"><a class="header" href="#cleanup-via-finalizer">Cleanup via Finalizer</a></h4>
+<p>Deleting the CR triggers the finalizer. Kubernetes finalizers ensure cleanup code runs BEFORE the resource is actually deleted.</p>
+<p>The cleanup process reads the child session information from the CR status - not from memory. This is important because if the operator restarted, the in-memory state would be empty, but the CR still knows which child sessions exist.</p>
+<p>For each child session in the status, we connect to that cluster’s operator and delete the child <code>MirrordClusterSession</code>. The remote cluster’s operator then cleans up its agent.</p>
+<p>After all children are deleted, the finalizer is removed from the CR, and Kubernetes completes the parent deletion.</p>
+<p>In single-cluster, cleanup is simpler - just delete the one session and its agent.</p>
+<h3 id="database-branching-in-multi-cluster"><a class="header" href="#database-branching-in-multi-cluster">Database Branching in Multi-Cluster</a></h3>
+<p>In single-cluster mode, this is straightforward: the CLI creates a branch CR, the operator creates a temporary database, and the developer’s application connects to it. In multi-cluster mode, this becomes more complex because the database can live on a different cluster than where the developer connects.</p>
+<h4 id="step-by-step-example-primary--default"><a class="header" href="#step-by-step-example-primary--default">Step-by-Step Example (Primary != Default)</a></h4>
+<p>This is the most common multi-cluster database branching scenario. The developer connects to the Primary cluster, but the application that uses the database runs on the Default cluster (<code>cluster-a</code>). The developer has PostgreSQL branching configured in their <code>mirrord.json</code>.</p>
+<p><strong>Branch Creation</strong></p>
+<ol>
+<li>The developer runs <code>mirrord exec ./myapp</code>. The CLI reads the <code>mirrord.json</code> configuration and sees that database branching is enabled for PostgreSQL.</li>
+<li>The CLI calls <code>prepare_pg_branch_dbs()</code>. This creates a <code>PgBranchDatabase</code> CR on the Primary cluster with the branch spec (source database, owner, etc.).</li>
+<li>The <code>DbBranchSyncController</code> on the Primary cluster detects the new <code>PgBranchDatabase</code> CR.</li>
+<li>The sync controller creates a copy of this CR on the Default cluster (<code>cluster-a</code>).</li>
+<li>The Default cluster’s PostgreSQL branching controller detects the new CR and starts creating the branch — it spins up a temporary database pod and copies the schema/data from the source etc..</li>
+<li>Once the branch is ready, the Default cluster’s controller updates the CR status to <code>Ready</code> with the branch name (e.g. <code>postgres-test-pg-branch-5www5</code>).</li>
+<li>The sync controller detects the status change on the Default cluster’s CR and copies it back to the Primary cluster’s CR.</li>
+<li>The CLI’s <code>await_condition()</code> polling loop sees the Primary CR status change to <code>Ready</code>.</li>
+<li>The CLI extracts the branch name from the CR status.</li>
+</ol>
+<p><strong>Passing Branch Names to the Session</strong></p>
+<ol>
+<li>The CLI builds <code>ConnectParams</code> containing <code>pg_branch_names: ["postgres-test-pg-branch-5www5"]</code>.</li>
+<li>The CLI opens a WebSocket connection to the Primary operator with the <code>ConnectParams</code> encoded in the URL query string.</li>
+<li>The Primary operator creates the <code>MirrordMultiClusterSession</code> CR and starts creating child sessions.</li>
+<li>When creating the child session on the Default cluster (<code>cluster-a</code>), the Primary operator forwards the <code>ConnectParams</code> including the branch names. Non-default clusters do not receive branch names.</li>
+</ol>
+<p><strong>Environment Variable Interception</strong></p>
+<ol>
+<li>The developer’s application starts and reads <code>DATABASE_URL</code> from the environment.</li>
+<li>The <code>MultiClusterRouter</code> on Primary routes this <code>GetEnvVarsRequest</code> to the Default cluster only (stateful operation).</li>
+<li>The Default cluster’s operator reads the real environment variables from the target pod, e.g. <code>DATABASE_URL=postgres://db.prod:5432/mydb</code>.</li>
+<li>The operator checks the session’s branch configuration and sees there is a PostgreSQL branch named <code>postgres-test-pg-branch-5www5</code>.</li>
+<li>The operator modifies the response: <code>DATABASE_URL=postgres://db.prod:5432/postgres-test-pg-branch-5www5</code>.</li>
+<li>The application receives the modified connection string and connects to the branch database instead of production — completely transparently.</li>
+</ol>
+<p><strong>Branch Cleanup</strong></p>
+<ol>
+<li>The developer’s application exits. The session is cleaned up (see Session Lifecycle above).</li>
+<li>The branch’s TTL starts counting down. While the session was active, the TTL was continuously extended.</li>
+<li>After the TTL expires (e.g. 30 minutes), the Default cluster’s branching controller deletes the branch CR and cleans up the temporary database pod.</li>
+<li>The <code>DbBranchSyncController</code> detects the deletion on the Default cluster and deletes the corresponding CR on the Primary cluster.</li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> If Primary <strong>is</strong> the Default cluster some steps are skipped because the branching controllers run directly on Primary and process the CRs locally, just like single-cluster. The sync controller does not run.</p>
+</blockquote>
+<h4 id="how-database-branching-works-in-single-cluster"><a class="header" href="#how-database-branching-works-in-single-cluster">How Database Branching Works in Single-Cluster</a></h4>
+<p>In single-cluster mirrord, the CLI has direct access to the Kubernetes cluster where the pod it’s connected to runs. When a developer configures database branching in their <code>mirrord.json</code> file, the CLI creates a CR such as <code>PgBranchDatabase</code> for PostgreSQL or <code>MysqlBranchDatabase</code> for MySQL etc… The operator watches for these CRs and responds by creating the branch. It spins up a temporary database pod and updates the CR’s status to indicate the branch is ready. The CLI waits for this status change before proceeding. Once the branch is ready, the operator knows to intercept environment variable requests from the application and modify database connection strings to point to the branch instead of the production database.</p>
+<h4 id="the-multi-cluster-challenge"><a class="header" href="#the-multi-cluster-challenge">The Multi-Cluster Challenge</a></h4>
+<p>In multi-cluster mode, the developer’s CLI connects to the Primary cluster, but we don’t want to create the same branch on all child clusters so instead we only do that on the Default cluster. Also the Primary cluster can be a management-only cluster that orchestrates sessions but doesn’t host application workloads or resources. This creates a fundamental problem: the CLI cannot directly create branch CRs on the Default cluster because the developer only has access to the Primary cluster.</p>
+<h4 id="configuration-based-controller-deployment"><a class="header" href="#configuration-based-controller-deployment">Configuration-Based Controller Deployment</a></h4>
+<p>Branching controllers only run on the cluster designated to handle stateful operations (the Default cluster). The CLI creates branch CRs on the Primary cluster, and how they are processed depends on the cluster configuration.</p>
+<p>If Primary is the Default cluster, the branching controllers run locally on Primary and process the CRs directly. The CLI creates CRs, Primary’s branching controllers create the actual database branches, and everything happens on one cluster just like single-cluster mode.</p>
+<p>If Primary is not the Default cluster, the branching controllers do not run on Primary. Instead, a synchronization controller on Primary mirrors the CRs to the Default cluster, where the actual branching controllers run and create the database branches.</p>
+<p>The decision of which controllers to run is made at startup time based on configuration. When the operator starts, it loads the multi-cluster configuration and compares <code>cluster_name</code> (this cluster’s name) with <code>default_cluster</code> (where stateful operations happen):</p>
+<ul>
+<li><strong>Single-cluster mode</strong>: Branching controllers run and handle everything locally. No sync controller is needed.</li>
+<li><strong>Multi-cluster, Primary == Default</strong>: Branching controllers run on Primary. The <code>DbBranchSyncController</code> does not run.</li>
+<li><strong>Multi-cluster, Primary != Default</strong>: Branching controllers do not run on Primary. Instead, the <code>DbBranchSyncController</code> runs to sync CRs to the Default cluster where the actual branching controllers handle database creation.</li>
+</ul>
+<h4 id="the-database-branch-sync-controller"><a class="header" href="#the-database-branch-sync-controller">The Database Branch Sync Controller</a></h4>
+<p>When Primary is not the Default cluster, the Primary cluster runs a controller called <code>DbBranchSyncController</code>. This controller watches for branch CRs on Primary and synchronizes them to the Default cluster. The controller supports PostgreSQL, MySQL, and MongoDB branches.</p>
+<p>When the controller sees a new branch CR on the Primary cluster, it creates a copy of that CR on the Default cluster. The Default cluster’s branching controller (which runs only on Default) processes this CR and creates the actual database branch.</p>
+<p>The synchronization is bidirectional for status. Once the Default cluster’s operator creates the branch and updates the CR’s status to indicate readiness, the sync controller copies that status back to the Primary cluster’s CR. This allows the CLI, which is watching the Primary cluster’s CR, to know when the branch is ready even though the actual creation happened on a remote cluster.</p>
+<h4 id="cli"><a class="header" href="#cli">CLI</a></h4>
+<p>From the CLI’s perspective, multi-cluster database branching is identical to single-cluster. The CLI creates branch CRs on the cluster it has access to and waits for the status to become Ready or Failed. After creating the CRs, the CLI enters a waiting loop. It watches the CR status and waits for either a “Ready” or “Failed” phase. The waiting has a configurable timeout. If the branch doesn’t become ready within this timeout, the CLI fails.</p>
+<h4 id="passing-branch-names-to-sessions"><a class="header" href="#passing-branch-names-to-sessions">Passing Branch Names to Sessions</a></h4>
+<p>Once the branches are ready, the CLI passes the branch names to the Primary operator via <code>ConnectParams</code>, the same way it works in single-cluster. The Primary operator forwards these params when creating the child session on the Default cluster. Branch names are not stored in the session CRs — they flow through the connection parameters just like in single-cluster mode.</p>
+<h4 id="environment-variable-interception"><a class="header" href="#environment-variable-interception">Environment Variable Interception</a></h4>
+<p>In multi-cluster mode, this request is handled by the <code>MultiClusterRouter</code>. Because reading environment variables is a stateful operation (we want consistent answers regardless of which cluster handles the request), the router sends this request only to the Default cluster. This is the same cluster where the database branch was provisioned and where the session has the branch configuration in its ephemeral state.</p>
+<p>The Default cluster’s operator receives the request and handles it with branch awareness. It reads the actual environment variables from the target pod, which might include something like <code>DATABASE_URL=postgres://db.prod:5432/mydb</code>. Before returning this to the application, the operator checks if there are any branch overrides configured for this session. If the session has a PostgreSQL branch named <code>postgres-test-pg-branch-5www5</code>, the operator modifies the response to return <code>DATABASE_URL=postgres://db.prod:5432/postgres-test-pg-branch-5www5</code> instead.</p>
+<p>The application receives this modified connection string and connects to the branch database, completely unaware that anything special happened. From the application’s perspective, it simply read an environment variable and got a database URL. The fact that this URL points to a temporary branch rather than the production database is invisible to the application code.</p>
+<h4 id="branch-lifecycle-and-cleanup"><a class="header" href="#branch-lifecycle-and-cleanup">Branch Lifecycle and Cleanup</a></h4>
+<p>Database branches have a time-to-live (TTL) that controls how long they exist. In a typical configuration, a branch might have a TTL of 30 minutes, meaning it will be automatically deleted 30 minutes after the session that created it ends.</p>
+<p>While the session is active, the branch’s TTL is continually extended. The branching controller watches for active sessions and extends the TTL as long as the session is alive. This prevents branches from expiring while a developer is still using them.</p>
+<p>When the session ends (either because the developer’s application exited or because of a disconnection), the TTL extension stops. The branch continues to exist for its remaining TTL, giving the developer time to reconnect if needed. Once the TTL expires, the Default cluster’s branching controller deletes the branch and cleans up any associated resources.</p>
+<p>In multi-cluster mode, we also need to handle cleanup of the Primary cluster’s CR. The <code>DbBranchSyncController</code> handles this through bidirectional deletion synchronization. If the Default cluster deletes a branch CR (due to TTL expiration), the sync controller detects this and deletes the corresponding CR on the Primary cluster. Similarly, if someone deletes the Primary cluster’s CR, the sync controller deletes the copy on the Default cluster. This ensures that both clusters stay consistent and that orphaned CRs don’t accumulate.</p>
+<h3 id="sqs-queue-splitting-in-multi-cluster"><a class="header" href="#sqs-queue-splitting-in-multi-cluster">SQS Queue Splitting in Multi-Cluster</a></h3>
+<p>SQS queue splitting works across clusters. In single-cluster, the operator creates a temporary SQS queue, patches the target workload to consume from it, and filters messages based on the developer’s configuration. In multi-cluster, the same thing happens on each workload cluster — the operator on each cluster creates its own temporary queue and patches the local workload.</p>
+<p>The primary operator passes the SQS split configuration (queue IDs and message filters) to each child session via <code>ConnectParams</code>. It also passes the <code>sqs_output_queues</code> map, which tells each cluster the temporary queue names created by other clusters. This allows the output queue routing to work across cluster boundaries.</p>
+<p>Each workload cluster needs AWS credentials with SQS permissions to create and manage SQS queues. The operator uses the default AWS credential chain, so credentials can come from IRSA (<code>sa.roleArn</code>), the node’s IAM instance profile, EKS Pod Identity, or environment variables — whatever is available in the cluster. This is independent of the multi-cluster auth type — even if the cluster uses bearer token auth for the primary operator’s connection, it still needs its own AWS credentials for SQS operations.</p>
+<h2 id="drawbacks"><a class="header" href="#drawbacks">Drawbacks</a></h2>
+<ul>
+<li><strong>Implementation complexity</strong>: Multi-cluster introduces several new components (Envoy, MultiClusterRouter, MultiClusterSessionManager, DbBranchSyncController) that increase the overall system complexity and maintenance surface.</li>
+<li><strong>Operational overhead</strong>: Operators must be installed and maintained on every participating cluster. Authentication credentials (bearer tokens, mTLS certs, IAM roles) must be provisioned and managed.</li>
+<li><strong>Failure domain expansion</strong>: A networking issue between the Primary and any remote cluster can disrupt the entire multi-cluster session, whereas single-cluster sessions are self-contained.</li>
+<li><strong>Debugging difficulty</strong>: Troubleshooting spans multiple clusters, making it harder to diagnose issues compared to single-cluster where everything is local.</li>
+<li><strong>Latency</strong>: Cross-cluster communication adds latency to message routing, especially for stateful operations that must round-trip to the Default cluster.</li>
+</ul>
+<h2 id="rationale-and-alternatives"><a class="header" href="#rationale-and-alternatives">Rationale and alternatives</a></h2>
+<ul>
+<li><strong>Why a Primary-orchestrated model?</strong> The Primary cluster acts as a single entry point, which keeps the developer experience unchanged — developers only need access to one cluster. Alternatives like a mesh-based approach (where clusters discover each other peer-to-peer) were considered but would require more complex networking setup and would expose multi-cluster complexity to the developer.</li>
+<li><strong>What if we don’t do this?</strong> Developers working in multi-cluster environments would continue to manually manage separate mirrord sessions per cluster, which is error-prone, unreliable, and does not support cross-cluster traffic interception.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="0002-dashboard-backend.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="0002-dashboard-backend.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
