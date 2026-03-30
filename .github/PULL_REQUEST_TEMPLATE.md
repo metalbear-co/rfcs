@@ -1,6 +1,12 @@
 <!-- Thank you for trying to improve MetalBear products through the RFC process! -->
 <!-- Please add a short summary of your RFC below -->
 
+> [!IMPORTANT]
+> When reviewing RFCs, prefer inline review comments (you can leave a file-level inline comment at the top) over regular comments for content feedback, and reserve regular comments for procedural matters.
+>
+> This keeps the discussion more organized.
+
+
 ## Summary
 
 <!-- Briefly describe what this RFC proposes and why. -->
@@ -19,8 +25,3 @@
 - [ ] I built and verified the generated Markdown book pages
 - [ ] I renamed the RFC Markdown file (and directory if any) to the next available RFC number
 
-
-> [!IMPORTANT]
-> When reviewing RFCs, prefer inline review comments (you can leave a file-level inline comment at the top) over regular comments for content feedback, and reserve regular comments for procedural matters.
->
-> This keeps the discussion more organized.

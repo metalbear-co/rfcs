@@ -31,7 +31,7 @@ When in doubt, discuss with the team first.
 
 To propose a major change:
 
-  - Fork or clone the RFC repository
+  - Clone the RFC repository. Fork will not trigger PR preview workflow.
   - Create a GitHub issue in the RFC repository
   - In your branch
     - Copy `0000-template.md` to `text/0000-my-feature.md` (where "my-feature" is descriptive)
