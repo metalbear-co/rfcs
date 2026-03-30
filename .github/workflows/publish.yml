@@ -36,7 +36,7 @@ jobs:
         temp_dir="$(mktemp -d)"
         trap 'rm -rf "${temp_dir}"' EXIT
 
-        git init "${temp_dir}"
+        git init -b gh-pages "${temp_dir}"
         cd "${temp_dir}"
         git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
 
@@ -48,7 +48,7 @@ jobs:
         
         # Sync main RFC page artifacts while keeping PR preview pages
         find . -mindepth 1 -maxdepth 1 ! -name .git ! -name pr-preview -exec rm -rf {} +
-        rsync -a --delete "${GITHUB_WORKSPACE}/book/" "${temp_dir}/"
+        rsync -a "${GITHUB_WORKSPACE}/book/" "${temp_dir}/"
 
         if [ -n "$(git status --porcelain)" ]; then
           git config user.name "github-actions[bot]"
