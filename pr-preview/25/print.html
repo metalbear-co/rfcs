@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2435e6e3.js";
+            window.path_to_searchindex_js = "searchindex-723533c5.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-6c5406d1.js"></script>
+        <script src="toc-defd490c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1573,110 +1573,6 @@ Session 3 intproxy ──Unix Socket/Named Pipe──┘
 </li>
 </ol>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="0005-cloud-dashboard"><a href="#0005-cloud-dashboard" class="header">0005-cloud-dashboard</a></h1>
-<ul>
-<li>Feature Name: cloud_dashboard</li>
-<li>Start Date: 2026-03-30</li>
-<li>RFC PR: TBD</li>
-<li>RFC reference:
-<ul>
-<li><a href="https://linear.app/metalbear/issue/PRO-85/migrate-dashboard-backend-from-license-server-to-appmetalbearco">Linear PRO-85</a></li>
-<li>Extends <a href="#0002-dashboard-backend">RFC 0002: Dashboard Backend</a></li>
-</ul>
-</li>
-</ul>
-<h2 id="summary-4"><a class="header" href="#summary-4">Summary</a></h2>
-<p>Make the mirrord utilization dashboard available on app.metalbear.com for Teams and self-serve customers. The dashboard queries existing telemetry data in BigQuery (already collected by analytics-server) and displays it through the same React UI used for the in-cluster Enterprise dashboard.</p>
-<h2 id="motivation-4"><a class="header" href="#motivation-4">Motivation</a></h2>
-<p>Currently the utilization dashboard only works for Enterprise customers who deploy it in-cluster. Teams and self-serve customers have no visibility into their mirrord usage. The data already exists in BigQuery via the analytics-server pipeline, we just need to surface it.</p>
-<h3 id="goals"><a class="header" href="#goals">Goals</a></h3>
-<ol>
-<li>Teams/self-serve users can view usage dashboard on app.metalbear.com</li>
-<li>Dashboard shows the same metrics as the in-cluster version (sessions, users, trends)</li>
-<li>Data is anonymized by default (hashed user identifiers)</li>
-<li>Enterprise customers can optionally opt-in to share cleartext identifiers for a richer view on app.metalbear.com</li>
-</ol>
-<h3 id="non-goals"><a class="header" href="#non-goals">Non-goals</a></h3>
-<ul>
-<li>Replacing the in-cluster Enterprise dashboard (it continues to work as-is)</li>
-<li>Real-time streaming (BigQuery has inherent latency, near-real-time is fine)</li>
-</ul>
-<h2 id="how-it-works"><a class="header" href="#how-it-works">How it works</a></h2>
-<h3 id="data-flow-1"><a class="header" href="#data-flow-1">Data flow</a></h3>
-<pre class="mermaid">flowchart LR
-    Operator --&gt;|telemetry events| AS[analytics-server]
-    AS --&gt;|Avro records| PS[Pub/Sub]
-    PS --&gt;|streaming insert| BQ[BigQuery]
-    BQ --&gt;|SQL queries| API[app.metalbear.com backend]
-    API --&gt;|JSON| UI[app.metalbear.com/dashboard]
-</pre>
-
-<p>The operator already reports session events to analytics-server, which writes <code>SessionEventAvro</code> records to BigQuery via Pub/Sub. Each record contains:</p>
-<ul>
-<li><code>user_id</code> (hashed by default)</li>
-<li><code>duration</code> (session duration in seconds)</li>
-<li><code>ci</code> (boolean, whether session was CI)</li>
-<li><code>license_hash</code></li>
-<li><code>organization_id</code></li>
-<li><code>timestamp</code></li>
-</ul>
-<h3 id="what-we-add"><a class="header" href="#what-we-add">What we add</a></h3>
-<p><strong>1. New API endpoints on app.metalbear.com backend:</strong></p>
-<ul>
-<li><code>GET /api/v1/dashboard/usage?from=&lt;iso&gt;&amp;to=&lt;iso&gt;</code> - Returns general metrics, all-time metrics, per-user breakdown</li>
-<li><code>GET /api/v1/dashboard/trends?days=30</code> - Returns daily session counts, adoption curve</li>
-</ul>
-<p>Both endpoints are authenticated via Frontegg (same as all other app.metalbear.com endpoints). Data is scoped to the user’s organization via <code>organization_id</code> in BigQuery.</p>
-<p><strong>2. Dashboard UI on app.metalbear.com frontend:</strong></p>
-<p>New route at <code>/dashboard</code> in the React app. Reuses the existing dashboard components from <code>operator/dashboard/</code>, rewired to call the new API endpoints instead of the license server.</p>
-<p><strong>3. Anonymization toggle (Phase 2):</strong></p>
-<p>A Helm chart value <code>telemetry.shareUserIdentity: true</code> tells the operator to send cleartext user names instead of hashed identifiers. Default is <code>false</code> (hashed). When enabled, the dashboard on app.metalbear.com shows real user names.</p>
-<h3 id="bigquery-data-availability"><a class="header" href="#bigquery-data-availability">BigQuery data availability</a></h3>
-<p>The <code>SessionEventAvro</code> schema already has everything needed for the core dashboard:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Dashboard metric</th><th>BigQuery source</th></tr>
-</thead>
-<tbody>
-<tr><td>Active users</td><td><code>COUNT(DISTINCT user_id) WHERE timestamp &gt; from</code></td></tr>
-<tr><td>Total sessions</td><td><code>COUNT(*)</code></td></tr>
-<tr><td>Avg session duration</td><td><code>AVG(duration)</code></td></tr>
-<tr><td>Per-user metrics</td><td><code>GROUP BY user_id</code></td></tr>
-<tr><td>Daily trends</td><td><code>GROUP BY DATE(timestamp)</code></td></tr>
-<tr><td>CI sessions</td><td><code>WHERE ci = true</code></td></tr>
-</tbody>
-</table>
-</div>
-<p><strong>Missing data (gaps to fill later):</strong></p>
-<ul>
-<li>Target information (which deployment was mirrored) - not in current telemetry events</li>
-<li>Operator version - available in metadata but not per-session</li>
-</ul>
-<p>These can be added incrementally by extending the <code>SessionEventAvro</code> schema.</p>
-<h2 id="implementation-phases"><a class="header" href="#implementation-phases">Implementation phases</a></h2>
-<h3 id="phase-1-backend-api--basic-frontend"><a class="header" href="#phase-1-backend-api--basic-frontend">Phase 1: Backend API + basic frontend</a></h3>
-<ol>
-<li>Add BigQuery queries to app.metalbear.com backend for usage and trends</li>
-<li>Add <code>/api/v1/dashboard/usage</code> and <code>/api/v1/dashboard/trends</code> endpoints</li>
-<li>Copy dashboard React components, wire to new endpoints</li>
-<li>Gate behind PostHog feature flag for gradual rollout</li>
-</ol>
-<h3 id="phase-2-anonymization-toggle"><a class="header" href="#phase-2-anonymization-toggle">Phase 2: Anonymization toggle</a></h3>
-<ol>
-<li>Add <code>telemetry.shareUserIdentity</code> Helm chart value</li>
-<li>Modify operator to conditionally hash user identifiers</li>
-<li>Dashboard shows cleartext names when available</li>
-</ol>
-<h3 id="phase-3-enriched-data"><a class="header" href="#phase-3-enriched-data">Phase 3: Enriched data</a></h3>
-<ol>
-<li>Add target info to session telemetry events</li>
-<li>Add operator version per-session</li>
-<li>Surface in dashboard</li>
-</ol>
-<h3 id="frontend-component-strategy"><a class="header" href="#frontend-component-strategy">Frontend component strategy</a></h3>
-<p>The dashboard React components are copied from <code>operator/dashboard/</code> into <code>app.metalbear.co</code> for Phase 1. The two dashboards will diverge in their API layer (in-cluster talks to license server, cloud talks to app.metalbear.com with Frontegg auth), so a shared package is premature. If the visual components stay aligned over time and duplication becomes painful, extract shared components to <code>@metalbear/ui</code> as a future optimization.</p>
-<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="0005-template-charts-operator-unification"><a href="#0005-template-charts-operator-unification" class="header">0005-template-charts-operator-unification</a></h1>
 <ul>
 <li>Feature Name: <code>charts-operator-unification</code></li>
@@ -1690,9 +1586,9 @@ Session 3 intproxy ──Unix Socket/Named Pipe──┘
 </ul>
 </li>
 </ul>
-<h2 id="summary-5"><a class="header" href="#summary-5">Summary</a></h2>
+<h2 id="summary-4"><a class="header" href="#summary-4">Summary</a></h2>
 <p>Unify the charts and operator repositories by moving the contents of charts into the operator. Also, release the charts whenever the operator is released.</p>
-<h2 id="motivation-5"><a class="header" href="#motivation-5">Motivation</a></h2>
+<h2 id="motivation-4"><a class="header" href="#motivation-4">Motivation</a></h2>
 <p>Changes to the operator frequently require changes to be made to the charts. Some features require simultaneous changes in the operator, charts and mirrord (3 separate PRs) as well as docs and config docs (2 more separate PRs). This:</p>
 <ol>
 <li>Makes local development and testing more difficult</li>
@@ -1890,6 +1786,110 @@ Session 3 intproxy ──Unix Socket/Named Pipe──┘
 </li>
 <li>Release a nightly version of the operator and charts every day, with a version tag like <code>X.Y.Z-nightly.yyyy.mm.dd</code></li>
 </ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="0006-cloud-dashboard"><a href="#0006-cloud-dashboard" class="header">0006-cloud-dashboard</a></h1>
+<ul>
+<li>Feature Name: cloud_dashboard</li>
+<li>Start Date: 2026-03-30</li>
+<li>RFC PR: TBD</li>
+<li>RFC reference:
+<ul>
+<li><a href="https://linear.app/metalbear/issue/PRO-85/migrate-dashboard-backend-from-license-server-to-appmetalbearco">Linear PRO-85</a></li>
+<li>Extends <a href="#0002-dashboard-backend">RFC 0002: Dashboard Backend</a></li>
+</ul>
+</li>
+</ul>
+<h2 id="summary-5"><a class="header" href="#summary-5">Summary</a></h2>
+<p>Make the mirrord utilization dashboard available on app.metalbear.com for Teams and self-serve customers. The dashboard queries existing telemetry data in BigQuery (already collected by analytics-server) and displays it through the same React UI used for the in-cluster Enterprise dashboard.</p>
+<h2 id="motivation-5"><a class="header" href="#motivation-5">Motivation</a></h2>
+<p>Currently the utilization dashboard only works for Enterprise customers who deploy it in-cluster. Teams and self-serve customers have no visibility into their mirrord usage. The data already exists in BigQuery via the analytics-server pipeline, we just need to surface it.</p>
+<h3 id="goals"><a class="header" href="#goals">Goals</a></h3>
+<ol>
+<li>Teams/self-serve users can view usage dashboard on app.metalbear.com</li>
+<li>Dashboard shows the same metrics as the in-cluster version (sessions, users, trends)</li>
+<li>Data is anonymized by default (hashed user identifiers)</li>
+<li>Enterprise customers can optionally opt-in to share cleartext identifiers for a richer view on app.metalbear.com</li>
+</ol>
+<h3 id="non-goals"><a class="header" href="#non-goals">Non-goals</a></h3>
+<ul>
+<li>Replacing the in-cluster Enterprise dashboard (it continues to work as-is)</li>
+<li>Real-time streaming (BigQuery has inherent latency, near-real-time is fine)</li>
+</ul>
+<h2 id="how-it-works"><a class="header" href="#how-it-works">How it works</a></h2>
+<h3 id="data-flow-1"><a class="header" href="#data-flow-1">Data flow</a></h3>
+<pre class="mermaid">flowchart LR
+    Operator --&gt;|telemetry events| AS[analytics-server]
+    AS --&gt;|Avro records| PS[Pub/Sub]
+    PS --&gt;|streaming insert| BQ[BigQuery]
+    BQ --&gt;|SQL queries| API[app.metalbear.com backend]
+    API --&gt;|JSON| UI[app.metalbear.com/dashboard]
+</pre>
+
+<p>The operator already reports session events to analytics-server, which writes <code>SessionEventAvro</code> records to BigQuery via Pub/Sub. Each record contains:</p>
+<ul>
+<li><code>user_id</code> (hashed by default)</li>
+<li><code>duration</code> (session duration in seconds)</li>
+<li><code>ci</code> (boolean, whether session was CI)</li>
+<li><code>license_hash</code></li>
+<li><code>organization_id</code></li>
+<li><code>timestamp</code></li>
+</ul>
+<h3 id="what-we-add"><a class="header" href="#what-we-add">What we add</a></h3>
+<p><strong>1. New API endpoints on app.metalbear.com backend:</strong></p>
+<ul>
+<li><code>GET /api/v1/dashboard/usage?from=&lt;iso&gt;&amp;to=&lt;iso&gt;</code> - Returns general metrics, all-time metrics, per-user breakdown</li>
+<li><code>GET /api/v1/dashboard/trends?days=30</code> - Returns daily session counts, adoption curve</li>
+</ul>
+<p>Both endpoints are authenticated via Frontegg (same as all other app.metalbear.com endpoints). Data is scoped to the user’s organization via <code>organization_id</code> in BigQuery.</p>
+<p><strong>2. Dashboard UI on app.metalbear.com frontend:</strong></p>
+<p>New route at <code>/dashboard</code> in the React app. Reuses the existing dashboard components from <code>operator/dashboard/</code>, rewired to call the new API endpoints instead of the license server.</p>
+<p><strong>3. Anonymization toggle (Phase 2):</strong></p>
+<p>A Helm chart value <code>telemetry.shareUserIdentity: true</code> tells the operator to send cleartext user names instead of hashed identifiers. Default is <code>false</code> (hashed). When enabled, the dashboard on app.metalbear.com shows real user names.</p>
+<h3 id="bigquery-data-availability"><a class="header" href="#bigquery-data-availability">BigQuery data availability</a></h3>
+<p>The <code>SessionEventAvro</code> schema already has everything needed for the core dashboard:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Dashboard metric</th><th>BigQuery source</th></tr>
+</thead>
+<tbody>
+<tr><td>Active users</td><td><code>COUNT(DISTINCT user_id) WHERE timestamp &gt; from</code></td></tr>
+<tr><td>Total sessions</td><td><code>COUNT(*)</code></td></tr>
+<tr><td>Avg session duration</td><td><code>AVG(duration)</code></td></tr>
+<tr><td>Per-user metrics</td><td><code>GROUP BY user_id</code></td></tr>
+<tr><td>Daily trends</td><td><code>GROUP BY DATE(timestamp)</code></td></tr>
+<tr><td>CI sessions</td><td><code>WHERE ci = true</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Missing data (gaps to fill later):</strong></p>
+<ul>
+<li>Target information (which deployment was mirrored) - not in current telemetry events</li>
+<li>Operator version - available in metadata but not per-session</li>
+</ul>
+<p>These can be added incrementally by extending the <code>SessionEventAvro</code> schema.</p>
+<h2 id="implementation-phases"><a class="header" href="#implementation-phases">Implementation phases</a></h2>
+<h3 id="phase-1-backend-api--basic-frontend"><a class="header" href="#phase-1-backend-api--basic-frontend">Phase 1: Backend API + basic frontend</a></h3>
+<ol>
+<li>Add BigQuery queries to app.metalbear.com backend for usage and trends</li>
+<li>Add <code>/api/v1/dashboard/usage</code> and <code>/api/v1/dashboard/trends</code> endpoints</li>
+<li>Copy dashboard React components, wire to new endpoints</li>
+<li>Gate behind PostHog feature flag for gradual rollout</li>
+</ol>
+<h3 id="phase-2-anonymization-toggle"><a class="header" href="#phase-2-anonymization-toggle">Phase 2: Anonymization toggle</a></h3>
+<ol>
+<li>Add <code>telemetry.shareUserIdentity</code> Helm chart value</li>
+<li>Modify operator to conditionally hash user identifiers</li>
+<li>Dashboard shows cleartext names when available</li>
+</ol>
+<h3 id="phase-3-enriched-data"><a class="header" href="#phase-3-enriched-data">Phase 3: Enriched data</a></h3>
+<ol>
+<li>Add target info to session telemetry events</li>
+<li>Add operator version per-session</li>
+<li>Surface in dashboard</li>
+</ol>
+<h3 id="frontend-component-strategy"><a class="header" href="#frontend-component-strategy">Frontend component strategy</a></h3>
+<p>The dashboard React components are copied from <code>operator/dashboard/</code> into <code>app.metalbear.co</code> for Phase 1. The two dashboards will diverge in their API layer (in-cluster talks to license server, cloud talks to app.metalbear.com with Frontegg auth), so a shared package is premature. If the visual components stay aligned over time and duplication becomes painful, extract shared components to <code>@metalbear/ui</code> as a future optimization.</p>
 
                     </main>
 
