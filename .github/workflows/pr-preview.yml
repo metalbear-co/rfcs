@@ -46,7 +46,7 @@ jobs:
         temp_dir="$(mktemp -d)"
         trap 'rm -rf "${temp_dir}"' EXIT
 
-        git init "${temp_dir}"
+        git init -b gh-pages "${temp_dir}"
         cd "${temp_dir}"
         git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
 
@@ -117,7 +117,7 @@ jobs:
         temp_dir="$(mktemp -d)"
         trap 'rm -rf "${temp_dir}"' EXIT
 
-        git init "${temp_dir}"
+        git init -b gh-pages "${temp_dir}"
         cd "${temp_dir}"
         git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
 
