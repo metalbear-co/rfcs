@@ -6,12 +6,16 @@ smart-punctuation = true
 no-section-label = true
 git-repository-url = "https://github.com/metalbear-co/rfcs"
 site-url = "/rfcs/"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
 
 [output.html.search]
 heading-split-level = 0
 
 [output.html.playground]
 runnable = false
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
 
 [build]
 extra-watch-dirs = ["text"]

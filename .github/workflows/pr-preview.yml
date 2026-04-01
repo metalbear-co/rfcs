@@ -1,0 +1,162 @@
+name: PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+env:
+  MDBOOK_VERSION: 0.5.2
+  MDBOOK_MERMAID_VERSION: 0.17.0
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Setup Rust
+      uses: metalbear-co/setup-rust-toolchain@009cda47e1b529982a00627a40eda87b4215035a
+    - name: Install mdbook and mdbook-mermaid
+      run: |
+        cargo install mdbook --version ${{ env.MDBOOK_VERSION }} --locked
+        cargo install mdbook-mermaid --version ${{ env.MDBOOK_MERMAID_VERSION }} --locked
+    - name: Set preview site url
+      run: |
+        sed -i 's#^site-url = ".*"#site-url = "/rfcs/pr-preview/${{ github.event.pull_request.number }}/"#' book.toml
+    - name: Generate Book
+      run: |
+        ./generate-book.py
+    - name: Publish PR preview to gh-pages
+      env:
+        REPO: ${{ github.repository }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+
+        temp_dir="$(mktemp -d)"
+        trap 'rm -rf "${temp_dir}"' EXIT
+
+        git init -b gh-pages "${temp_dir}"
+        cd "${temp_dir}"
+        git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+
+        if git fetch --depth=1 origin gh-pages; then
+          git checkout -B gh-pages FETCH_HEAD
+        else
+          git checkout --orphan gh-pages
+        fi
+
+        mkdir -p "pr-preview/${PR_NUMBER}"
+        rsync -a --delete "${GITHUB_WORKSPACE}/book/" "${temp_dir}/pr-preview/${PR_NUMBER}/"
+
+        if [ -n "$(git status --porcelain)" ]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Deploy PR #${PR_NUMBER} preview for ${GITHUB_SHA}"
+          git push origin gh-pages
+        else
+          echo "No preview changes to publish."
+        fi
+    - name: Update PR body with preview URL
+      uses: actions/github-script@v7
+      env:
+        PREVIEW_URL: https://${{ github.repository_owner }}.github.io/rfcs/pr-preview/${{ github.event.pull_request.number }}/
+      with:
+        script: |
+          const start = '<!-- pr-preview:start -->';
+          const end = '<!-- pr-preview:end -->';
+          const block = [
+            start,
+            '## Rendered Preview',
+            `- ${process.env.PREVIEW_URL}`,
+            end
+          ].join('\n');
+          const pr = context.payload.pull_request;
+          const body = pr.body ?? '';
+          const pattern = new RegExp(`${start}[\\s\\S]*?${end}`, 'm');
+          const nextBody = pattern.test(body)
+            ? body.replace(pattern, block)
+            : `${body}${body ? '\n\n' : ''}${block}`;
+          if (nextBody !== body) {
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              body: nextBody
+            });
+          }
+
+  cleanup-preview:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Remove PR preview from gh-pages
+      env:
+        REPO: ${{ github.repository }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+        temp_dir="$(mktemp -d)"
+        trap 'rm -rf "${temp_dir}"' EXIT
+
+        git init -b gh-pages "${temp_dir}"
+        cd "${temp_dir}"
+        git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+
+        if ! git fetch --depth=1 origin gh-pages; then
+          echo "gh-pages does not exist yet, nothing to clean."
+          exit 0
+        fi
+        git checkout -B gh-pages FETCH_HEAD
+
+        if [ -d "pr-preview/${PR_NUMBER}" ]; then
+          rm -rf "pr-preview/${PR_NUMBER}"
+        else
+          echo "No preview directory found for PR ${PR_NUMBER}."
+        fi
+
+        if [ -n "$(git status --porcelain)" ]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Remove PR #${PR_NUMBER} preview"
+          git push origin gh-pages
+        else
+          echo "No cleanup changes to push."
+        fi
+    - name: Remove preview URL block from PR body
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const start = '<!-- pr-preview:start -->';
+          const end = '<!-- pr-preview:end -->';
+          const pr = context.payload.pull_request;
+          const body = pr.body ?? '';
+          const pattern = new RegExp(`\\n*${start}[\\s\\S]*?${end}\\n*`, 'm');
+          const nextBody = body.replace(pattern, '\n\n').trim();
+          if (nextBody !== body) {
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              body: nextBody
+            });
+          }
