@@ -1,10 +1,10 @@
 - Feature Name: `unified_branch_database_crd`
 - Start Date: 2026-02-26
-- Last Updated: 2026-03-02
+- Last Updated: 2026-03-26
 
 ## Summary
 
-Replace the three database-specific Custom Resource Definitions (`PgBranchDatabase`, `MysqlBranchDatabase`, `MongodbBranchDatabase`) with a single unified `BranchDatabase` CRD. The new CRD uses a `dialect` field to pick the database and a `dialectOptions` field for db specific configuration, removing the code duplication across the CRD definitions, operator controllers, CLI, multi-cluster sync, and Helm chart.
+Replace the three database-specific Custom Resource Definitions (`PgBranchDatabase`, `MysqlBranchDatabase`, `MongodbBranchDatabase`) with a single unified `BranchDatabase` CRD. The new CRD uses per-dialect option fields (`postgresOptions`, `mysqlOptions`, `mongodbOptions`, `mssqlOptions`) to carry database-specific configuration, removing the code duplication across the CRD definitions, operator controllers, CLI, multi-cluster sync, and Helm chart.
 
 ## Motivation
 
@@ -18,7 +18,7 @@ Adding a new database type requires touching many files with boilerplate, and bu
 
 ### The unified `BranchDatabase` CRD
 
-Instead of creating a `PgBranchDatabase`, `MysqlBranchDatabase`, or `MongodbBranchDatabase`, the CLI and operator now work with a single `BranchDatabase` resource. The `dialect` field tells the operator which database it is for:
+Instead of creating a `PgBranchDatabase`, `MysqlBranchDatabase`, or `MongodbBranchDatabase`, the CLI and operator now work with a single `BranchDatabase` resource. The dialect is determined by which options field is set - exactly one of `postgresOptions`, `mysqlOptions`, `mongodbOptions`, or `mssqlOptions` must be present:
 
 ```yaml
 apiVersion: dbs.mirrord.metalbear.co/v1alpha1
@@ -27,23 +27,25 @@ metadata:
   generateName: my-app-pg-branch-
 spec:
   id: "abc123"
-  dialect: postgres
   connectionSource:
     url:
       env:
         variable: DATABASE_URL
+        container: my-app
   databaseName: my_db
   target:
-    deployment:
-      name: my-app
+    apiVersion: v1
+    kind: Pod
+    name: my-app-pod
+    container: my-app
   ttlSecs: 3600
   version: "16"
-  copy:
-    mode: schema
-    items:
-      users:
-        filter: "username = 'alice'"
-  dialectOptions:
+  postgresOptions:
+    copy:
+      mode: schema
+      items:
+        users:
+          filter: "username = 'alice'"
     iamAuth:
       type: aws_rds
       region:
@@ -60,23 +62,40 @@ spec:
 
 ### Unified CRD spec
 
-The three database CRD specs are replaced by a single `BranchDatabase` kind. The key new fields are:
+The three database CRD specs are replaced by a single `BranchDatabase` kind. The spec contains shared fields that apply to all databases and per-dialect option fields for database-specific configuration:
 
-- **`dialect`**: an enum with values `postgres`, `mysql`, `mongodb`, `mssql`. Tells the operator which database engine to provision.
-- **`version`**: replaces the database version fields (`postgresVersion`, `mysqlVersion`, `mongodbVersion`) with a single optional string.
-- **`dialectOptions`**: an optional section for db-specific configuration. Currently only contains `iamAuth` (used by PostgreSQL with AWS RDS / GCP Cloud SQL). As new dialect-specific features are needed, they are added here.
+**Shared fields** (present on every `BranchDatabase`):
 
-### Unified copy config
+- **`id`**: unique branch identifier derived by the mirrord CLI.
+- **`connectionSource`**: how the operator discovers the database connection string from the target workload.
+- **`databaseName`**: optional database name to branch.
+- **`target`**: the Kubernetes resource to extract connection info from, using the `SessionTarget` structure (`apiVersion`, `kind`, `name`, `container`).
+- **`ttlSecs`**: how long the branch lives while idle.
+- **`version`**: replaces the per-database version fields (`postgresVersion`, `mysqlVersion`, `mongodbVersion`) with a single optional string.
 
-The database copy configs are merged. The `tables` field (Pg/MySQL/MSSQL) and `collections` field (MongoDB) become a single `items` field in the CRD - a map of entity name to an optional filter string. In the mirrord client config, each database type keeps its own field name (`tables` for SQL databases, `collections` for MongoDB) for clarity; the conversion to the unified `items` field happens when creating the CRD.
+**Per-dialect option fields** (exactly one must be set):
 
-The copy mode is unified to `Empty`, `Schema`, `All`:
+- **`postgresOptions`**: PostgreSQL-specific config. Contains `copy` (copy mode and per-table filters) and `iamAuth` (AWS RDS / GCP Cloud SQL IAM authentication).
+- **`mysqlOptions`**: MySQL-specific config. Contains `copy`.
+- **`mongodbOptions`**: MongoDB-specific config. Contains `copy` (with its own `MongodbCopySpec`).
+- **`mssqlOptions`**: MSSQL-specific config. Contains `copy`.
+
+The dialect is determined by which option field is present - there is no separate `dialect` enum field. The operator validates at runtime that exactly one option field is set and returns an error if none or multiple are provided.
+
+### Copy config
+
+Each dialect's options contain a `copy` field with mode and optional per-item filters. For SQL databases (`postgresOptions`, `mysqlOptions`, `mssqlOptions`), the copy config uses `SqlBranchCopyConfig` with:
+
+- **`mode`**: one of `empty`, `schema`, or `all`.
+- **`items`**: an optional map of entity name to filter config. In the mirrord client config, each database type keeps its own field name (`tables` for SQL databases, `collections` for MongoDB) for clarity; the conversion to the unified `items` field happens when creating the CRD.
+
+Copy modes:
 
 - **`empty`**: Creates an empty database with no schema or data. This is the default when the `copy` attribute is not specified.
 - **`schema`**: Copies only the table structures (schemas) from the source database, without any data. If `items` (tables/collections) are specified, data is selectively copied for those items with their filters applied.
 - **`all`**: Copies everything from the source database - both schema and all data. No filtering is supported in this mode.
 
-Not all modes are valid for all engines. For example, MongoDB does not support `Schema` mode.
+Not all modes are valid for all engines. For example, MongoDB does not support `schema` mode.
 
 ### Shared types (unchanged)
 
@@ -138,7 +157,7 @@ Single release replaces old CRDs with the new one. No overlap period.
 
 ### Why this design
 
-A single CRD with a `dialect` field is the natural fit for resources that share most of their schema. It matches how the operator already works internally: the controller is generic and the database-specific logic lives in separate initializer implementations. The unified CRD makes the Kubernetes API match the internal design.
+A single CRD with per-dialect option fields is the natural fit for resources that share most of their schema. It matches how the operator already works internally: the controller is generic and the database-specific logic lives in separate initializer implementations. Using separate option fields rather than a `dialect` enum plus a single `dialectOptions` bag gives the CRD schema precise validation per database type - each dialect's options have their own typed structure, so invalid combinations are caught by the schema rather than at runtime. The unified CRD makes the Kubernetes API match the internal design.
 
 ### Impact of not doing this
 
@@ -147,10 +166,9 @@ The existing architecture works. The cost is ongoing maintenance: every new feat
 ## Unresolved questions
 
 - **Copy mode validation**: should `Schema` mode be added to MongoDB as a no-op (always valid, just does nothing extra), or should it be rejected at runtime?
-- **Naming**: `dialect` vs `engine` vs `type` for the database kind field. `dialect` is used in this RFC but `engine` may be more intuitive. and if renamed the options should probably also follow. For example, if we go with `engine` - `engineOptions`, `dialect` - `dialectOptions`, `type` - `typeOptions` etc..
 - **Helm flag naming**: `operator.dbBranching` vs keeping separate database flags that all point to the same CRD.
 
 ## Future possibilities
 
-- **New database engines**: with the unified CRD, adding support for a new engine (CockroachDB etc.) requires only adding a new dialect variant, implementing the database-specific initializer, and adding the init container binary. No CRD schema changes, no Helm chart changes, no new controllers.
-- **`dialectOptions` extensibility**: the flat approach makes it easy to add new dialect-specific fields without changing the API version. For example, MongoDB-specific replica set configuration or MySQL-specific character set defaults could be added as optional fields.
+- **New database engines**: with the unified CRD, adding support for a new engine (e.g. CockroachDB, ClickHouse) requires adding a new option field to `BranchDatabaseSpec`, implementing the database-specific initializer, and adding the init container binary. No Helm chart changes and no new controllers are needed.
+- **Per-dialect extensibility**: each dialect's options struct can grow independently. For example, MongoDB-specific replica set configuration or MySQL-specific character set defaults can be added as optional fields to their respective options struct without affecting other dialects.
