@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8b251f41.js";
+            window.path_to_searchindex_js = "searchindex-46d7dcfc.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-f9668b5f.js"></script>
+        <script src="toc-eb86e5db.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1785,6 +1785,156 @@ Session 3 intproxy ──Unix Socket/Named Pipe──┘
 </ul>
 </li>
 <li>Release a nightly version of the operator and charts every day, with a version tag like <code>X.Y.Z-nightly.yyyy.mm.dd</code></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="0006-unified-branch-database-crd"><a href="#0006-unified-branch-database-crd" class="header">0006-unified-branch-database-crd</a></h1>
+<ul>
+<li>Feature Name: <code>unified_branch_database_crd</code></li>
+<li>Start Date: 2026-02-26</li>
+<li>Last Updated: 2026-03-26</li>
+</ul>
+<h2 id="summary-5"><a class="header" href="#summary-5">Summary</a></h2>
+<p>Replace the three database-specific Custom Resource Definitions (<code>PgBranchDatabase</code>, <code>MysqlBranchDatabase</code>, <code>MongodbBranchDatabase</code>) with a single unified <code>BranchDatabase</code> CRD. The new CRD uses per-dialect option fields (<code>postgresOptions</code>, <code>mysqlOptions</code>, <code>mongodbOptions</code>, <code>mssqlOptions</code>) to carry database-specific configuration, removing the code duplication across the CRD definitions, operator controllers, CLI, multi-cluster sync, and Helm chart.</p>
+<h2 id="motivation-5"><a class="header" href="#motivation-5">Motivation</a></h2>
+<p>The current database branching implementation defines a separate CRD for each supported database engine. While each CRD shares most of its structure (connection source, target, TTL, copy config, status), the database split forces duplication on a lot of places:</p>
+<p>The three CRD specs are nearly identical - they are different only in the version field name (<code>postgresVersion</code> / <code>mysqlVersion</code> / <code>mongodbVersion</code>), the copy config entity name (<code>tables</code> vs <code>collections</code>), available copy modes, and IAM auth (Pg-only for now). Everything else (connection source, target, TTL, status, copy filters) is shared.</p>
+<p>Adding a new database type requires touching many files with boilerplate, and bug fixes to shared logic must be replicated across all three paths.</p>
+<h2 id="guide-level-explanation-5"><a class="header" href="#guide-level-explanation-5">Guide-level explanation</a></h2>
+<h3 id="the-unified-branchdatabase-crd"><a class="header" href="#the-unified-branchdatabase-crd">The unified <code>BranchDatabase</code> CRD</a></h3>
+<p>Instead of creating a <code>PgBranchDatabase</code>, <code>MysqlBranchDatabase</code>, or <code>MongodbBranchDatabase</code>, the CLI and operator now work with a single <code>BranchDatabase</code> resource. The dialect is determined by which options field is set - exactly one of <code>postgresOptions</code>, <code>mysqlOptions</code>, <code>mongodbOptions</code>, or <code>mssqlOptions</code> must be present:</p>
+<pre><code class="language-yaml">apiVersion: dbs.mirrord.metalbear.co/v1alpha1
+kind: BranchDatabase
+metadata:
+  generateName: my-app-pg-branch-
+spec:
+  id: "abc123"
+  connectionSource:
+    url:
+      env:
+        variable: DATABASE_URL
+        container: my-app
+  databaseName: my_db
+  target:
+    apiVersion: v1
+    kind: Pod
+    name: my-app-pod
+    container: my-app
+  ttlSecs: 3600
+  version: "16"
+  postgresOptions:
+    copy:
+      mode: schema
+      items:
+        users:
+          filter: "username = 'alice'"
+    iamAuth:
+      type: aws_rds
+      region:
+        env:
+          variable: AWS_REGION
+</code></pre>
+<h3 id="key-changes-from-the-users-perspective"><a class="header" href="#key-changes-from-the-users-perspective">Key changes from the user’s perspective</a></h3>
+<ul>
+<li><strong>No behavioral change</strong>: database branching works exactly as before. The mirrord config file format is unchanged. Users do not need to modify their mirrord configuration.</li>
+<li><strong>Helm chart</strong>: per-database flags are kept (<code>operator.pgBranching</code>, <code>operator.mysqlBranching</code>, <code>operator.mongodbBranching</code>, <code>operator.mssqlBranching</code>). All of them point to the same unified <code>BranchDatabase</code> CRD and controller, but the flags control which database engines are enabled. A single CRD definition is registered when any of the flags is enabled.</li>
+</ul>
+<h2 id="reference-level-explanation-5"><a class="header" href="#reference-level-explanation-5">Reference-level explanation</a></h2>
+<h3 id="unified-crd-spec"><a class="header" href="#unified-crd-spec">Unified CRD spec</a></h3>
+<p>The three database CRD specs are replaced by a single <code>BranchDatabase</code> kind. The spec contains shared fields that apply to all databases and per-dialect option fields for database-specific configuration:</p>
+<p><strong>Shared fields</strong> (present on every <code>BranchDatabase</code>):</p>
+<ul>
+<li><strong><code>id</code></strong>: unique branch identifier derived by the mirrord CLI.</li>
+<li><strong><code>connectionSource</code></strong>: how the operator discovers the database connection string from the target workload.</li>
+<li><strong><code>databaseName</code></strong>: optional database name to branch.</li>
+<li><strong><code>target</code></strong>: the Kubernetes resource to extract connection info from, using the <code>SessionTarget</code> structure (<code>apiVersion</code>, <code>kind</code>, <code>name</code>, <code>container</code>).</li>
+<li><strong><code>ttlSecs</code></strong>: how long the branch lives while idle.</li>
+<li><strong><code>version</code></strong>: replaces the per-database version fields (<code>postgresVersion</code>, <code>mysqlVersion</code>, <code>mongodbVersion</code>) with a single optional string.</li>
+</ul>
+<p><strong>Per-dialect option fields</strong> (exactly one must be set):</p>
+<ul>
+<li><strong><code>postgresOptions</code></strong>: PostgreSQL-specific config. Contains <code>copy</code> (copy mode and per-table filters) and <code>iamAuth</code> (AWS RDS / GCP Cloud SQL IAM authentication).</li>
+<li><strong><code>mysqlOptions</code></strong>: MySQL-specific config. Contains <code>copy</code>.</li>
+<li><strong><code>mongodbOptions</code></strong>: MongoDB-specific config. Contains <code>copy</code> (with its own <code>MongodbCopySpec</code>).</li>
+<li><strong><code>mssqlOptions</code></strong>: MSSQL-specific config. Contains <code>copy</code>.</li>
+</ul>
+<p>The dialect is determined by which option field is present - there is no separate <code>dialect</code> enum field. The operator validates at runtime that exactly one option field is set and returns an error if none or multiple are provided.</p>
+<h3 id="copy-config"><a class="header" href="#copy-config">Copy config</a></h3>
+<p>Each dialect’s options contain a <code>copy</code> field with mode and optional per-item filters. For SQL databases (<code>postgresOptions</code>, <code>mysqlOptions</code>, <code>mssqlOptions</code>), the copy config uses <code>SqlBranchCopyConfig</code> with:</p>
+<ul>
+<li><strong><code>mode</code></strong>: one of <code>empty</code>, <code>schema</code>, or <code>all</code>.</li>
+<li><strong><code>items</code></strong>: an optional map of entity name to filter config. In the mirrord client config, each database type keeps its own field name (<code>tables</code> for SQL databases, <code>collections</code> for MongoDB) for clarity; the conversion to the unified <code>items</code> field happens when creating the CRD.</li>
+</ul>
+<p>Copy modes:</p>
+<ul>
+<li><strong><code>empty</code></strong>: Creates an empty database with no schema or data. This is the default when the <code>copy</code> attribute is not specified.</li>
+<li><strong><code>schema</code></strong>: Copies only the table structures (schemas) from the source database, without any data. If <code>items</code> (tables/collections) are specified, data is selectively copied for those items with their filters applied.</li>
+<li><strong><code>all</code></strong>: Copies everything from the source database - both schema and all data. No filtering is supported in this mode.</li>
+</ul>
+<p>Not all modes are valid for all engines. For example, MongoDB does not support <code>schema</code> mode.</p>
+<h3 id="shared-types-unchanged"><a class="header" href="#shared-types-unchanged">Shared types (unchanged)</a></h3>
+<p>The connection source types, status/phase types, session info, and IAM auth config all remain unchanged from the current design.</p>
+<h3 id="approach-a-keep-old-crds-temporarily"><a class="header" href="#approach-a-keep-old-crds-temporarily">Approach A: (keep old CRDs temporarily)</a></h3>
+<p>Run old and new CRDs side-by-side for some time, giving users time to upgrade CLI and operator.</p>
+<p><strong>Introduction release</strong>:</p>
+<ol>
+<li>Helm chart registers the new <code>BranchDatabase</code> CRD alongside the three old ones.</li>
+<li>Operator starts controllers for both old (<code>PgBranchDatabase</code>, <code>MysqlBranchDatabase</code>, <code>MongodbBranchDatabase</code>) and new (<code>BranchDatabase</code>) CRD types.</li>
+<li>New CLI versions create only the new <code>BranchDatabase</code> CRD.</li>
+<li>Old CRDs still work - users with older CLI versions continue working.</li>
+<li>Multi-cluster sync controller watches all CRD kinds.</li>
+</ol>
+<p><strong>Later removal release</strong>:</p>
+<ol>
+<li>Old CRD definitions are removed from the Helm chart.</li>
+<li>Old controllers and sync watchers are removed from the operator.</li>
+</ol>
+<p><strong>Pros</strong>:</p>
+<ul>
+<li>Zero downtime for users during transition.</li>
+</ul>
+<p><strong>Cons</strong>:</p>
+<ul>
+<li>Operator must maintain both old and new controller code for a few releases.</li>
+<li>Multi-cluster sync complexity increases during the overlap period.</li>
+<li>More testing (both ways must work).</li>
+</ul>
+<h3 id="approach-b-remove-old-crds-immediately"><a class="header" href="#approach-b-remove-old-crds-immediately">Approach B: (remove old CRDs immediately)</a></h3>
+<p>Single release replaces old CRDs with the new one. No overlap period.</p>
+<h3 id="switchover-release"><a class="header" href="#switchover-release">Switchover release</a></h3>
+<ol>
+<li>Helm chart removes the three old CRD definitions and adds the single <code>BranchDatabase</code> CRD.</li>
+<li>Operator ships only the new <code>BranchDatabase</code> controller.</li>
+<li>CLI creates only the new <code>BranchDatabase</code> CRD.</li>
+<li>When the Helm upgrade runs, Kubernetes deletes the old CRD definitions, which also deletes all existing old CRD instances and their owned pods.</li>
+</ol>
+<p><strong>Active sessions at upgrade time</strong>: any branch database pods that exist at upgrade time are deleted because removing a CRD definition also removes all its instances. Users with active mirrord sessions using database branches will see their sessions fail. This is acceptable because:</p>
+<ul>
+<li>Users can restart their mirrord session, which creates a new branch using the new CRD.</li>
+<li>The upgrade window can be communicated in release notes.</li>
+</ul>
+<p><strong>Pros</strong>:</p>
+<ul>
+<li>No extra complexity - clean, simple upgrade.</li>
+<li>Operator codebase immediately benefits from less duplication (no legacy code).</li>
+</ul>
+<p><strong>Cons</strong>:</p>
+<ul>
+<li>Breaking change for any active sessions at upgrade time.</li>
+</ul>
+<h2 id="rationale-and-alternatives-4"><a class="header" href="#rationale-and-alternatives-4">Rationale and alternatives</a></h2>
+<h3 id="why-this-design"><a class="header" href="#why-this-design">Why this design</a></h3>
+<p>A single CRD with per-dialect option fields is the natural fit for resources that share most of their schema. It matches how the operator already works internally: the controller is generic and the database-specific logic lives in separate initializer implementations. Using separate option fields rather than a <code>dialect</code> enum plus a single <code>dialectOptions</code> bag gives the CRD schema precise validation per database type - each dialect’s options have their own typed structure, so invalid combinations are caught by the schema rather than at runtime. The unified CRD makes the Kubernetes API match the internal design.</p>
+<h3 id="impact-of-not-doing-this-2"><a class="header" href="#impact-of-not-doing-this-2">Impact of not doing this</a></h3>
+<p>The existing architecture works. The cost is ongoing maintenance: every new feature or bug fix in the branching flow must be applied to x number of places depending on how many database types we have, X CRD schemas, X controllers, and X sync controllers.</p>
+<h2 id="unresolved-questions-4"><a class="header" href="#unresolved-questions-4">Unresolved questions</a></h2>
+<ul>
+<li><strong>Copy mode validation</strong>: should <code>Schema</code> mode be added to MongoDB as a no-op (always valid, just does nothing extra), or should it be rejected at runtime?</li>
+<li><strong>Helm flag naming</strong>: <code>operator.dbBranching</code> vs keeping separate database flags that all point to the same CRD.</li>
+</ul>
+<h2 id="future-possibilities-4"><a class="header" href="#future-possibilities-4">Future possibilities</a></h2>
+<ul>
+<li><strong>New database engines</strong>: with the unified CRD, adding support for a new engine (e.g. CockroachDB, ClickHouse) requires adding a new option field to <code>BranchDatabaseSpec</code>, implementing the database-specific initializer, and adding the init container binary. No Helm chart changes and no new controllers are needed.</li>
+<li><strong>Per-dialect extensibility</strong>: each dialect’s options struct can grow independently. For example, MongoDB-specific replica set configuration or MySQL-specific character set defaults can be added as optional fields to their respective options struct without affecting other dialects.</li>
 </ul>
 
                     </main>
