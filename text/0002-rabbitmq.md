@@ -101,22 +101,36 @@ With managing our own "shovel" we get complete control over the message and we c
 
 The base solution is doing pretty much the same as we do in SQS, we can create 2 or more new queues (one for unfiltered and any filtered queues depending on how many sessions are up), then we patch the target with the new queue for the unfiltered messages and we will be the consumer from original queue and pipe to the relevant queue.
 
-### MirrordRabbitMQCluster
+### MirrordPropertyList
 
-A custom resource to store connection strings so they can be used on a name basis when split definition is needed.
+A custom resource to store cluster or queue definitions. This is inspired in how `env` and `envFrom` are implemented for container specification in Kuberentes pods.
 
 ```yaml
-apiVersion: queues.mirrord.metalbear.co/v1alpha
-kind: MirrordRabbitMQCluster
+apiVersion: mirrord.metalbear.co/v1
+kind: MirrordPropertyList
 metadata:
   name: cluster-definition-name-with-credenitals
+  namespace: my-namespace
 spec:
-  clientProperties: {}
-  connectionString: amqp://guest:guest@rabbit:5672/%2F
-  locale: en_US
-  tls:
-    identity: # client certificate authentication
-    certChain: # custom certificates chain in PEM format
+  properties:
+    - name: host
+      value: rabbit
+    - name: username
+      valueFrom:
+        secretKeyRef:
+          name: rabbitmq-secret
+          key: username
+    - name: passowrd
+      valueFrom:
+        secretKeyRef:
+          name: rabbitmq-secret
+          key: passowrd
+  propertiesFrom:
+    - secretRef:
+        name: rabbitmq-tls-secret
+    - configMapRef:
+        name: rabbitmq-common-cluster-configmap
+        optional: true
 ```
 
 Here also it's the place for any tls config or custom clientProperties or some other locale than the default one.
@@ -130,93 +144,36 @@ apiVersion: queues.mirrord.metalbear.co/v1alpha
 kind: MirrordWorkloadQueueRegistry
 metadata:
   name: queue-definition
+  namespace: my-namespace
 spec:
   queues:
-    first-queue: 
+    first-queue:
       queueType: RMQ
+      clusterProperties: cluster-definition-name-with-credenitals
       nameSource:
         envVar: QUEUE_NAME
-      generatedName:
-        exchangePrefix: my-prefix2-
-        queuePrefix: my-prefix-
-        queueSuffix: -my-suffix
-      arguments:
-        x-queue-type: quorum
-      options:
-        passive: false
-        durable: true
-        exclusive: false
-        auto_delete: false
-        nowait: false
-      exchangeBindings:
-        nameSource:
-          envVar: EXCHANGE_NAME
-        routingKey: ""
-        arguments:
-          some-logic-header: value
-  ...
-status:
-  activeRmqSplits:
-    queueNames:
-      first-queue:
-        exchangeName: my-prefix2-dummy-exchange
-        originalName: target-queue
-        outputName: my-prefix-mirrord-sink-my-suffix
+      exchangeSource:
+        envVar: EXCHANGE_NAME
 ```
 
-### MirrordRabbitMQSession
+### MirrordRMQSession
 
 The main purpose of the rabbitmq session is to create and handle the lifespan of created queues and the state of their creation so the operator can assertively define the state. I want to store all needed data for the split in the session since I want to avoid management api and only use the declarative AMQP api only.
 
 ```yaml
 apiVersion: queues.mirrord.metalbear.co/v1alpha
-kind: MirrordRabbitMQSession
+kind: MirrordRMQSession
 metadata:
   name: some-session-id-with-prefix-or-suffix
 spec:
-  cluster:
-    clusterRef:
-      name: cluster-definition-name-with-credenitals
-      vhost: /
-    // or inline specification
-    connectionString: amqp://guest:guest@rabbit:5672/%2F
   queues:
-  - queue: target-queue
-    arguments:
-      x-queue-type: quorum
-    options:
-      passive: false
-      durable: true
-      exclusive: false
-      auto_delete: false
-      nowait: false
-  exchangeBindings:
-  - exchange: dummy-exchange
-    queue: target-queue
-    routingKey: ""
-    arguments:
-      some-logic-header: value
-  filters:
-  - queues: [target-queue]
-    messageFilter:
-      x-header: my-value
-status:
-  sharedQueue:
-    queue: mirrord-sink
-    arguments:
-      x-queue-type: classic
-    options:
-      durable: true
-  queues:
-  - queue: split-queue
-    arguments:
-      x-queue-type: quorum
-    options:
-      passive: false
-      durable: true
-      exclusive: false
-      auto_delete: false
-      nowait: false
+    namespace: my-namespace
+    outputQueueNames:
+      # same as SQS
+    queueConsumer:
+      # same as SQS
+    queueFilters:
+      # same as SQS (except without jq).
   ...
 ```
 
