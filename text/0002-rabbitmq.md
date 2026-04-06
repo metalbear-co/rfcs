@@ -20,7 +20,7 @@ RabbitMQ Queue splitting would enable concurrency for RMQ based consumer workloa
 
 ### RabbitMQ names and concepts.
 
-- `vhost` - RabbitMQ natively is a multi-tenant system and thus supports internal segmentation where connections, exchanges, queues, bindings, user permissions, policies and some other things to **virtual hosts**. (similar to Kubernetes namespaces)
+- `vhost` - RabbitMQ natively is a multi-tenant system and thus supports internal segmentation where connections, exchanges, queues, bindings, user permissions, policies and some other things belong to **virtual hosts**. (similar to Kubernetes namespaces)
 - `queue` - A buffer that will store messages until a consumer is ready to process them. there are 3 types of queues supported in RabbitMQ and those are `classic`, `quorum` and `stream`. Queue mainly has a type, name and key-value store of arguments and can be set to either durable or not. (durable makes so the queue survives broker restart) Arguments define certain behaviour the broker will ensure for example auto expiration of messages, overflows-behaviour, limits on message size and etc. (queue type is also defined as an argument named `x-queue-type`)
   * `classic` - The quintessential FIFO queue that will remove messages from the queue once one of the consumers acknowledges the message or is not-acknowledged and then either enqueued again to back of the queue or sent to another exchange via `x-dead-letter-exchange` argument.
   * `quorum` - Similar to classic queues but instead of using replication across different nodes the messages are shared between them based on the Raft consensus algorithm. This queue is always durable and is encouraged by rabbit to be considered the default choice when needing a replicated, highly available queue.
@@ -274,7 +274,7 @@ Main drawback of this solution is the fact that the operator is the one performi
 
 One main impact on the cluster itself will be a performance one, since we are moving messages through the external api we are subject to multiple "transactions" we create where we want to guarantee delivery, and the replication that can happen if the queues are defined as highly available.
 
-Currently we must have the abuility to set queue name / exchange name variable where it might be problematic since the common usage of rabbitmq queue biniding via decorators and thus it's not assured they are available to be set at runtime.
+Currently we must have the ability to set queue name / exchange name variable where it might be problematic since the common usage of rabbitmq queue binding via decorators and thus it's not assured they are available to be set at runtime.
 
 ## Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
