@@ -1,0 +1,701 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>0007-unified-queue-splitting-crd - The MetalBear RFC Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-15a083bf.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-677e5be5.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The MetalBear RFC Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/metalbear-co/rfcs" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <ul>
+<li>Feature Name: <code>unified_queue_splitting_crd</code></li>
+<li>Start Date: 2026-04-07</li>
+<li>Last Updated: 2026-04-07</li>
+</ul>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p>Replace the existing queue splitting Custom Resource Definitions (<code>MirrordWorkloadQueueRegistry</code>, <code>MirrordKafkaTopicsConsumer</code>, <code>MirrordKafkaClientConfig</code>) with a single <code>MirrordSplitConfig</code> CRD and a shared queue splitting flow in the operator. The new model keeps broker-specific details where needed, but standardizes how workloads, client configuration, and queue references are described across SQS, Kafka, RabbitMQ, and future supported brokers (including Google Cloud Pub/Sub and Azure Service Bus).</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<p>Queue splitting has evolved separately for different broker types. That creates three practical problems:</p>
+<ol>
+<li>Users need to reason about several different resources for what is conceptually one feature.</li>
+<li>The operator contains duplicated queue splitting logic and duplicated configuration handling.</li>
+<li>Some capabilities are available for some broker types but not for others. For example, SQS and RabbitMQ support regex-based environment variable selection today, while Kafka does not.</li>
+</ol>
+<p>This fragmentation also makes future work slower. Adding a new broker type or a new configuration capability means touching several resource definitions and keeping their behavior aligned.</p>
+<h2 id="guide-level-explanation"><a class="header" href="#guide-level-explanation">Guide-level explanation</a></h2>
+<p>Queue splitting is configured through a single <code>MirrordSplitConfig</code> resource per workload. The resource describes:</p>
+<ol>
+<li>Which workload is being patched for queue splitting.</li>
+<li>How the workload restart should behave.</li>
+<li>How temporary resource names should be generated.</li>
+<li>How the broker client(s) should be configured.</li>
+<li>Which logical queues (queues, topics, pull subscriptions, …) can be split for that workload.</li>
+</ol>
+<p><code>MirrordPropertyList</code> remains the generic way to provide broker-specific configuration.
+<code>MirrordSplitConfig</code> references those property lists where needed instead of introducing new per-broker-flavor CRDs.</p>
+<p>From the user’s point of view, the most important change is that queue splitting becomes “one workload, one config”.</p>
+<p>As usual, every logical queue entry has a stable <code>id</code>, and that <code>id</code> is what the developer references from their mirrord config.
+The operator resolves the actual queue names, consumer groups, application IDs, or exchanges by reading the target workload’s pod template.</p>
+<p>There can be at most one <code>MirrordSplitConfig</code> for a workload. If the operator discovers more than one, it may fail queue splitting sessions for that workload rather than guessing which configuration should win.</p>
+<p>For example:</p>
+<pre><code class="language-yaml">apiVersion: queues.mirrord.metalbear.co/v1
+kind: MirrordSplitConfig
+metadata:
+  name: checkout-queues
+  namespace: stage-1
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout
+  clientConfigs:
+    kafka: checkout-kafka-client
+  queues:
+    - id: orders
+      kind: kafka
+      appConfig:
+        topic:
+          - env: ORDERS_TOPIC
+        groupId:
+          - env: ORDERS_GROUP_ID
+    - id: delayed-retries
+      kind: sqs
+      appConfig:
+        queue:
+          - env: ^ORDERS_RETRY_QUEUE_
+</code></pre>
+<p>Queue splitting status is exposed to users through:</p>
+<ul>
+<li><code>mirrord qs list</code></li>
+<li><code>mirrord qs get --name &lt;splitconfig name&gt;</code></li>
+</ul>
+<p>The exact contents of that status output are still to be defined, but the intent is that queue splitting state is inspected through the dedicated queue-splitting commands rather than through <code>mirrord operator status</code>.</p>
+<h2 id="reference-level-explanation"><a class="header" href="#reference-level-explanation">Reference-level explanation</a></h2>
+<h3 id="mirrordsplitconfig"><a class="header" href="#mirrordsplitconfig"><code>MirrordSplitConfig</code></a></h3>
+<p><code>MirrordSplitConfig</code> replaces the queue-specific CRDs with one schema that covers all supported queue kinds. The resource contains:</p>
+<ol>
+<li><code>targetRef</code>: the workload to patch.</li>
+<li><code>restart</code>: optional restart behavior for the workload.</li>
+<li><code>drainTimeout</code>: optional message drain timeout for the workload.</li>
+<li><code>tmpNameTemplate</code>: optional template for generated temporary resource names.</li>
+<li><code>clientConfigs</code>: optional default client configuration per queue kind.</li>
+<li><code>queues</code>: the logical queues that users can reference from mirrord config.</li>
+</ol>
+<h3 id="target-workload"><a class="header" href="#target-workload">Target workload</a></h3>
+<p>The target workload is specified in the required <code>.spec.targetRef</code> field.</p>
+<p><code>targetRef</code> contains three required fields:</p>
+<ol>
+<li><code>apiVersion</code>: API version of the target resource.</li>
+<li><code>kind</code>: kind of the target resource.</li>
+<li><code>name</code>: name of the target resource.</li>
+</ol>
+<p>The namespace is inferred from the namespace of the <code>MirrordSplitConfig</code> itself. This is flexible enough to target any supported Kubernetes resource in the same namespace.</p>
+<p>Example:</p>
+<pre><code class="language-yaml">targetRef:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: workload-name
+</code></pre>
+<h3 id="restart-policy"><a class="header" href="#restart-policy">Restart policy</a></h3>
+<p>Restart behavior is configured in the optional <code>.spec.restart</code> section.</p>
+<p><code>restart</code> contains three optional fields:</p>
+<ol>
+<li><code>strategy</code>: restart strategy to use, either <code>standard</code> or <code>isolatePods</code>. Defaults to the global operator setting.</li>
+<li><code>timeout</code>: timeout in seconds (<code>u32</code>) for reaching the <code>waitForPods</code> condition after the restart starts. Defaults to the global operator setting.</li>
+<li><code>waitForPods</code>: success condition for the restart. This controls how many patched and ready target pods are required before mirrord sessions may start.</li>
+</ol>
+<p><code>waitForPods</code> can be either:</p>
+<ol>
+<li>A <code>u32</code>. <code>0</code> means sessions may start immediately.</li>
+<li><code>all</code>. This means there can be no unpatched pod, and at least one patched pod must be ready.</li>
+</ol>
+<p>Examples:</p>
+<pre><code class="language-yaml"># Use isolatePods and wait for all pods to be patched.
+# Timeout after 180 seconds.
+restart:
+  strategy: isolatePods
+  timeout: 180
+  waitForPods: all
+
+---
+# Do not wait for any pod to be patched.
+# Use global defaults for other settings.
+restart:
+  waitForPods: 0
+</code></pre>
+<h3 id="drain-timeout"><a class="header" href="#drain-timeout">Drain timeout</a></h3>
+<p>Message drain timeout (in seconds, as <code>u32</code>) is configured in the optional <code>.spec.drainTimeout</code> field.</p>
+<p>If the field is not present, idle splits will live indefinitely while the fallback queues have unconsumed messages.</p>
+<p>Examples:</p>
+<pre><code class="language-yaml"># Disable message drain. Split will terminate as soon as there are no active split sessions.
+drainTimeout: 0
+
+---
+# Wait for at most 120 seconds for the fallback queues to be drainged while there are no active split sessions.
+drainTimeout: 120
+</code></pre>
+<h3 id="temporary-resource-name-template"><a class="header" href="#temporary-resource-name-template">Temporary resource name template</a></h3>
+<p>Temporary resource names are configured through the optional <code>.spec.tmpNameTemplate</code> field. The default value is:</p>
+<pre><code class="language-text">mirrord-tmp-{{RANDOM}}{{FALLBACK}}{{ORIGINAL}}
+</code></pre>
+<p>The template supports three special blocks:</p>
+<ol>
+<li><code>{{RANDOM}}</code>: random lowercase ASCII characters.</li>
+<li><code>{{FALLBACK}}</code>: <code>-fallback-</code> for fallback resources (e.g. queues for unmatched messages) and <code>-</code> for user temporary resources.</li>
+<li><code>{{ORIGINAL}}</code>: the original resource name.</li>
+</ol>
+<h3 id="broker-client-configuration"><a class="header" href="#broker-client-configuration">Broker client configuration</a></h3>
+<p>Default broker client configuration is specified in the optional <code>.spec.clientConfigs</code> section.</p>
+<p>This section has one optional field per supported queue kind:</p>
+<ol>
+<li><code>sqs</code></li>
+<li><code>kafka</code></li>
+<li><code>rmq</code></li>
+<li><code>googlePubSub</code></li>
+<li><code>azureServiceBus</code></li>
+<li>…</li>
+</ol>
+<p>Each field contains the name of a <code>MirrordPropertyList</code> resource that holds broker-specific client configuration.
+How that property list is interpreted remains specific to the queue kind.</p>
+<p>This section is optional because for some queue kinds we can derive their client configuration from the operator environment.</p>
+<p>Example:</p>
+<pre><code class="language-yaml">clientConfigs:
+  kafka: mirrord-librdkafka-client
+  # SQS client config can be derived from the operator environment.
+  # sqs: ...
+</code></pre>
+<h3 id="queue-definitions"><a class="header" href="#queue-definitions">Queue definitions</a></h3>
+<p>Splittable queues are configured in the required <code>.spec.queues</code> field.</p>
+<p><code>queues</code> is an array. Each item defines one logical queue ID that users can reference from mirrord config. One logical queue ID may resolve to more than one physical queue/topic/subscription name.</p>
+<p>Each queue entry supports the following fields:</p>
+<ol>
+<li><code>id</code> (required): arbitrary queue ID used in the user’s mirrord config.</li>
+<li><code>kind</code> (required): one of <code>sqs</code>, <code>kafka</code>, <code>rmq</code>, <code>googlePubSub</code>, <code>azureServiceBus</code>, …</li>
+<li><code>clientConfig</code> (optional): override for <code>.spec.clientConfigs.&lt;kind&gt;</code>. If present, the operator uses this client configuration for this queue entry instead of the kind-wide default.
+For example, this enables support of workloads that consume from multiple message broker clusters.</li>
+<li><code>queueConfig</code> (optional): name of a <code>MirrordPropertyList</code> containing additional queue-specific configuration.
+For example, this enables adding setting marker tags on created temporary queues.</li>
+<li><code>appConfig</code> (required): describes how the target application is configured to consume the queue.</li>
+</ol>
+<p><code>appConfig</code> can contain multiple keys, each corresponding to a different queue-kind-specific property that is needed in order to consume messages:</p>
+<ol>
+<li><code>kafka</code>:
+<ul>
+<li><code>topic</code> (required)</li>
+<li><code>groupId</code> (either <code>groupId</code> or <code>appId</code> must be present)</li>
+<li><code>appId</code> (either <code>groupId</code> or <code>appId</code> must be present)</li>
+</ul>
+</li>
+<li><code>sqs</code>:
+<ul>
+<li><code>queue</code> (required)</li>
+</ul>
+</li>
+<li><code>rmq</code>:
+<ul>
+<li><code>queue</code> (required)</li>
+<li><code>exchange</code> (optional)</li>
+</ul>
+</li>
+<li><code>googlePubSub</code>:
+<ul>
+<li><code>subscription</code> (required)</li>
+<li><code>projectId</code> (optional)</li>
+</ul>
+</li>
+<li><code>azureServiceBus</code>: TBD, most likely <code>queue</code> OR <code>topic</code> and <code>subscription</code></li>
+</ol>
+<p>Each key is mapped to an array of references.
+Each reference points to one or more environment variables in the target pod’s template:</p>
+<ol>
+<li><code>env</code> (either <code>env</code> or <code>envLike</code> must be present): exact environment variable name.</li>
+<li><code>envLike</code> (either <code>env</code> or <code>envLike</code> must be present): regular expression matching environment variable names.</li>
+<li><code>fallback</code> (optional): fallback value if the variable is not found. Only valid when <code>env</code> is used.</li>
+<li><code>valueSelector</code> (optional): <a href="https://github.com/01mf02/jaq">JAQ</a> selector used to extract the value(s) from the variable contents.</li>
+<li><code>containers</code> (optional): list of containers to inspect. If omitted, the operator searches all containers in the pod template.</li>
+</ol>
+<p>Examples:</p>
+<pre><code class="language-yaml"># The application consumes one Kafka topic.
+# The topic name and consumer group ID are passed in two separate variables.
+# The workload has only one container.
+queues:
+  - id: registration-events
+    kind: kafka
+    appConfig:
+      topic:
+        - env: REGISTRATION_EVENTS_TOPIC
+      groupId:
+        - env: KAFKA_GROUP_ID
+
+---
+# The application consumes one Kafka topic.
+# The topic name and consumer group ID are stored in one structured variable.
+# Only the `consumer` container contains the relevant env var.
+queues:
+  - id: registration-events
+    kind: kafka
+    appConfig:
+      topic:
+        - env: REGISTRATION_EVENTS
+          valueSelector: .topic
+          containers: ["consumer"]
+      groupId:
+        - env: REGISTRATION_EVENTS
+          valueSelector: .groupId
+          containers: ["consumer"]
+
+---
+# The application consumes two Kafka topics: one with the standard consumer API
+# and one with the Kafka Streams API. The Kafka Streams topic uses a special client.
+queues:
+  - id: registration-events
+    kind: kafka
+    appConfig:
+      topic:
+        - env: REGISTRATION_EVENTS_TOPIC
+      groupId:
+        - env: KAFKA_GROUP_ID
+  - id: subscription-events
+    kind: kafka
+    clientConfig: mirrord-java-kafka-client
+    appConfig:  
+      topic:
+        - env: SUBSCRIPTION_EVENTS
+      appId:
+        - env: KAFKA_STREAMS_APP_ID
+
+---
+# The application consumes multiple SQS queues. Their names are stored in
+# multiple environment variables prefixed with `SQS_QUEUE_`. Each variable
+# contains a map whose values are queue names.
+queues:
+  - id: all-sqs-queues
+    kind: sqs
+    appConfig:
+      queue:
+        - envLike: ^SQS_QUEUE_
+          valueSelector: .[]
+          containers: ["main", "sidecar"]
+</code></pre>
+<h3 id="full-example"><a class="header" href="#full-example">Full example</a></h3>
+<pre><code class="language-yaml">apiVersion: queues.mirrord.metalbear.co/v1
+kind: MirrordSplitConfig
+metadata:
+  name: rfc-example
+  namespace: workload-namespace
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: deployment-name
+  restart:
+    strategy: standard
+    timeout: 120
+    waitForPods: all
+  drainTimeout: 120
+  tmpNameTemplate: "mirrord-tmp{{FALLBACK}}{{RANDOM}}-{{ORIGINAL}}"
+  clientConfigs:
+    kafka: mirrord-librdkafka
+    rmq: mirrord-rmq
+  queues:
+    - id: my-kafka-standard-topic
+      kind: kafka
+      appConfig:
+        topic:
+          - env: KAFKA_TOPIC
+        groupId:
+          - env: KAFKA_GROUP_ID
+    - id: my-kafka-streams-topic
+      kind: kafka
+      clientConfig: mirrord-kafka-java
+      appConfig:  
+        topic:
+          - envLike: ^KAFKA_STREAMS_TOPIC_
+        appId:
+          - env: KAFKA_APP_ID
+    - id: my-sqs-queue
+      kind: sqs
+      queueConfig: mirrord-sqs-extra-tags
+      appConfig:
+        queue:
+          - envLike: ^SQS_QUEUES_
+            valueSelector: .[]
+    - id: my-rmq-queue
+      kind: rmq
+      queueConfig: mirrord-my-rmq-queue
+      appConfig:
+        queue:
+          - env: RMQ_QUEUE
+            fallback: events-queue
+            containers: ["rmq-consumer"]
+        exchange:
+          - env: RMQ_EXCHANGE
+            fallback: events-exchange
+            containers: ["rmq-consumer"]
+    - id: my-google-pubsub-subscription
+      kind: googlePubSub
+      appConfig:
+        subscription:
+          - env: PUB_SUB_SUBSCRIPTION
+</code></pre>
+<h3 id="queue-splitting-status"><a class="header" href="#queue-splitting-status">Queue splitting status</a></h3>
+<p>Queue splitting status is part of the <code>MirrordOperatorCrd</code> status, but it is intentionally surfaced through the queue-splitting CLI commands:</p>
+<ol>
+<li><code>mirrord qs list</code></li>
+<li><code>mirrord qs get --name &lt;splitconfig name&gt;</code></li>
+</ol>
+<p><code>mirrord operator status</code> does not include queue splitting status, because it’s already cluttered.</p>
+<p>The precise status payload is still TBD.</p>
+<h3 id="unified-operator-flow"><a class="header" href="#unified-operator-flow">Unified operator flow</a></h3>
+<p>The operator implementation is unified in the same way as the user-facing CRD:</p>
+<ol>
+<li>There is one queue splitting controller instead of separate broker-specific controllers.</li>
+<li>There is one session-owned internal resource, <code>MirrordClusterSplitSession</code>, instead of separate resources such as <code>MirrordSqsSession</code> and <code>MirrordClusterRmqSession</code>.</li>
+<li>All temporary resources are tracked through <code>MirrordClusterExternalResource</code>, with owner references to either <code>MirrordClusterSplitSession</code> or <code>MirrordClusterWorkloadPatchRequest</code>.</li>
+<li>Workload split state is tracked through <code>MirrordClusterWorkloadPatchRequest</code> and its metadata, as in the current SQS and RMQ implementations.</li>
+</ol>
+<p><code>MirrordClusterSplitSession</code>:</p>
+<pre><code class="language-yaml">apiVersion: mirrord.metalbear.co/v1
+kind: MirrordClusterSplitSession
+metadata:
+  name: aaaaaaaaaaaaaaaa
+spec:
+  # Session target. Required.
+  target:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-deployment
+    container: my-container
+  # Session namespace. Required.
+  namespace: target-namespace
+  # Session owner. Required.
+  owner:
+    userId: ==asd3kjndfkvjn
+    hostname: razz-machine
+    username: razz
+    k8sUsername: dev
+  # Session key. Optional for backwards compatibility.
+  sessionKey: 2f1b09ed-8788-4a68-a5b5-fc6919c2cf05
+  # Queues to split. Required.
+  # Both `headersFilter` and `jqFilter` empty mean "match nothing".
+  queues:
+      # ID from MirrordSplitConfig. Required.
+    - id: queue-id
+      # Queue kind. Required.
+      kind: kafka
+      # Set of regex-based headers/attributes filters, optional.
+      headersFilter:
+        header-1: regex-1
+        header-2: regex-2
+      # JQ-style filter, optional.
+      # Receives the message in a queue-kind-specific structured format.
+      jqFilter: .Body.clientId == "my-client-id"
+  status:
+    # Created temporary resources, by queue ID.
+    tmpResources:
+        # Queue ID from `MirrordSplitConfig`.
+      - queueId: queue-id
+        topic: # Matches property key in `.spec.queues.queue_id.appConfig` in `MirrordSplitConfig`.
+          orig-1: mirrord-tmp-asdjcnoeff-orig-1
+          orig-2: mirrord-tmp-asddkjfhnv-orig-2
+    # Environment variable updates, by container name.
+    # Stores updates for all containers, as they might be needed for target copying.
+    envUpdates:
+      main:
+        - name: MESSAGE_TOPIC_1
+          value: mirrord-tmp-asdjcnoeff-orig-1
+        - name: MESSAGE_TOPIC_2
+          value: mirrord-tmp-asddkjfhnv-orig-2
+      sidecar:
+        - name: MESSAGE_TOPIC_1
+          value: mirrord-tmp-asdjcnoeff-orig-1
+        - name: MESSAGE_TOPIC_2
+          value: mirrord-tmp-asddkjfhnv-orig-2
+    # Filled in case the split fails:
+    #
+    # failed:
+    #   code: 404
+    #   reason: QueueIdNotFound
+    #   message: queue ID `queue-id` was not found in MirrordSplitConfig `checkout-queues`
+</code></pre>
+<p>Queue splitting flow:</p>
+<ol>
+<li>Initiator of the split (e.g. endpoint that creates the target copy, endpoint that creates a new session, multicluster envoy) creates <code>MirrordClusterSplitSession</code>.
+The status either empty or prefilled with created <code>tmpResources</code>.</li>
+<li>Controller resolves full splitting parameters.</li>
+<li>Controller starts split.</li>
+<li>(optional, if not prefilled) Controller creates user tmp resources. Preserves them in <code>MirrordClusterExternalResource</code>s (with owner references to <code>MirrordClusterSplitSession</code>).
+Also stores them in <code>.status.tmpResources</code>.</li>
+<li>(optional, if prefilled) Controller compares tmp resources found in <code>.status.tmpResources</code> against the resolves splitting properties.</li>
+<li>Controller fills <code>.status.envUpdates</code>.</li>
+<li>Initiator of the split observes filled env updates and resumes work.</li>
+</ol>
+<p>All potential failures are communicated to the initiator through the <code>.status.failed</code> field.
+If the <code>MirrordClusterSplitSession</code> is owned by a resource that supports setting failure status, the controller fills that status as well.</p>
+<p>High availability is implemented following the SQS example. Splitting state is saved in metadata of the <code>MirrordClusterWorkloadPatchRequest</code>.
+The request is also marked with a label that prevents the patch manager from deleting it.
+The queue splitting controller is responsible for deleting the <code>MirrordClusterWorkloadPatchRequest</code> when its split expires.</p>
+<h3 id="migration-and-backward-compatibility"><a class="header" href="#migration-and-backward-compatibility">Migration and backward compatibility</a></h3>
+<p>The migration path favors a unified implementation without immediately dropping all existing configuration:</p>
+<ol>
+<li>Old-style active splits are forcefully terminated by the new version of the operator.</li>
+<li>Existing queue definitions from <code>MirrordWorkloadQueueRegistry</code> and <code>MirrordKafkaTopicsConsumer</code> are still read during migration.</li>
+<li>The operator builds one in-memory unified view by combining those existing definitions with <code>MirrordSplitConfig</code>.</li>
+<li>If the same queue ID is defined in both old-style and new-style configuration, the <code>MirrordSplitConfig</code> definition wins.</li>
+</ol>
+<h2 id="drawbacks"><a class="header" href="#drawbacks">Drawbacks</a></h2>
+<ol>
+<li>Existing queue splitting users will eventually need to migrate to the new configuration model.</li>
+<li>During the migration period, the operator must understand both the old resources and the new unified CRD.</li>
+<li>A single CRD is broader than the current per-broker resources, so validation rules that used to be implicit in separate schemas must now be enforced carefully.</li>
+</ol>
+<h2 id="rationale-and-alternatives"><a class="header" href="#rationale-and-alternatives">Rationale and alternatives</a></h2>
+<h3 id="why-this-design"><a class="header" href="#why-this-design">Why this design</a></h3>
+<p>A single CRD is the simplest representation of what queue splitting already is conceptually: one workload-level feature with broker-specific details. The design reduces duplication, makes capabilities easier to keep consistent across queue kinds, and provides a clearer extension point for new broker types.</p>
+<p>Keeping <code>MirrordPropertyList</code> as the carrier for broker-specific properties also avoids inventing a second generic configuration mechanism.
+The unified CRD decides when those properties are needed; the queue-specific code still decides how to interpret them.</p>
+<p>Restricting the model to at most one <code>MirrordSplitConfig</code> per workload avoids ambiguous merges between multiple configs that all share the same target.
+Failing the session is safer than silently choosing one configuration over another.</p>
+<h3 id="alternative-use-resource-metadata"><a class="header" href="#alternative-use-resource-metadata">Alternative: use resource metadata</a></h3>
+<p>Instead of creating a new CRD for queue splitting config, we can follow meshes example and put the configuration in the metadata of the workload itself.
+Each of the <code>MirrordSplitConfig</code> top-level fields could be its own annotation on the workload.</p>
+<p>Pros:</p>
+<ul>
+<li>We’ve heard from a customer that they don’t like CRDs</li>
+<li>We would follow a known pattern (mesh)
+Cons:</li>
+<li>mirrord-specific config would be more tightly coupled with</li>
+</ul>
+<h3 id="alternative-use-operator-config-map"><a class="header" href="#alternative-use-operator-config-map">Alternative: use operator config map</a></h3>
+<h3 id="impact-of-not-doing-this"><a class="header" href="#impact-of-not-doing-this">Impact of not doing this</a></h3>
+<p>If we keep the current model, queue splitting remains harder to reason about for users and harder to maintain in the operator.
+The immediate cost is duplication and inconsistent capabilities.
+The longer-term cost is slower delivery whenever we extend queue splitting to new brokers or add a new feature to all existing brokers.</p>
+<h2 id="unresolved-questions"><a class="header" href="#unresolved-questions">Unresolved questions</a></h2>
+<ol>
+<li>What should be included in queue splitting status, and how much of it should be exposed through <code>mirrord qs list</code> versus <code>mirrord qs get</code>?</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="0006-unified-branch-database-crd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="0006-unified-branch-database-crd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
