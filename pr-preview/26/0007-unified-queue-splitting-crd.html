@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-15a083bf.js";
+            window.path_to_searchindex_js = "searchindex-29b15499.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-677e5be5.js"></script>
@@ -181,6 +181,7 @@
 <li>Feature Name: <code>unified_queue_splitting_crd</code></li>
 <li>Start Date: 2026-04-07</li>
 <li>Last Updated: 2026-04-07</li>
+<li>RFC PR: <a href="https://github.com/metalbear-co/rfcs/pull/26">metalbear-co/rfcs#26</a></li>
 </ul>
 <h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
 <p>Replace the existing queue splitting Custom Resource Definitions (<code>MirrordWorkloadQueueRegistry</code>, <code>MirrordKafkaTopicsConsumer</code>, <code>MirrordKafkaClientConfig</code>) with a single <code>MirrordSplitConfig</code> CRD and a shared queue splitting flow in the operator. The new model keeps broker-specific details where needed, but standardizes how workloads, client configuration, and queue references are described across SQS, Kafka, RabbitMQ, and future supported brokers (including Google Cloud Pub/Sub and Azure Service Bus).</p>
