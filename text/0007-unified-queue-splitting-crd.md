@@ -1,6 +1,7 @@
 - Feature Name: `unified_queue_splitting_crd`
 - Start Date: 2026-04-07
 - Last Updated: 2026-04-07
+- RFC PR: [metalbear-co/rfcs#26](https://github.com/metalbear-co/rfcs/pull/26)
 
 ## Summary
 [summary]: #summary
