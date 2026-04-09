@@ -172,7 +172,8 @@ mirrord-tmp-{{RANDOM}}{{FALLBACK}}{{ORIGINAL}}
 The template supports three special blocks:
 
 1. `{{RANDOM}}`: random lowercase ASCII characters.
-2. `{{FALLBACK}}`: `-fallback-` for fallback resources (e.g. queues for unmatched messages) and `-` for user temporary resources.
+2. `{{FALLBACK}}`: `-fallback-` for fallback resources (e.g. queues for unmatched messages)
+and `-` for user temporary resources (e.g. queues for matched and stolen messages).
 3. `{{ORIGINAL}}`: the original resource name.
 
 ### Broker client configuration
