@@ -234,7 +234,7 @@ For example, this enables setting marker tags on created temporary queues.
     * `projectId` (optional)
 5. `azureServiceBus`: TBD, most likely `queue` OR `topic` and `subscription`
 
-Each key is mapped to an array of references.
+Each field of `appConfig` contains an array of references.
 Each reference points to one or more environment variables in the target pod's template,
 and supports the following fields:
 
