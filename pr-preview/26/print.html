@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-61e62c36.js";
+            window.path_to_searchindex_js = "searchindex-fbeaa98d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-677e5be5.js"></script>
@@ -1996,10 +1996,10 @@ spec:
         queue:
           - env: ^ORDERS_RETRY_QUEUE_
 </code></pre>
-<p>Queue splitting status is exposed to users through:</p>
+<p>Queue splitting status is exposed to users through <code>mirrord queues</code> (aliased <code>mirrord qs</code>) subcommands:</p>
 <ul>
-<li><code>mirrord qs list</code></li>
-<li><code>mirrord qs get --name &lt;splitconfig name&gt;</code></li>
+<li><code>mirrord queues list</code></li>
+<li><code>mirrord queues get --name &lt;splitconfig name&gt;</code></li>
 </ul>
 <p>The exact contents of that status output are still to be defined, but the intent is that queue splitting state is inspected through the dedicated queue-splitting commands rather than through <code>mirrord operator status</code>.</p>
 <h2 id="reference-level-explanation-6"><a class="header" href="#reference-level-explanation-6">Reference-level explanation</a></h2>
@@ -2142,7 +2142,8 @@ Each reference points to one or more environment variables in the target pod’s
 <ol>
 <li><code>env</code> (either <code>env</code> or <code>envLike</code> must be present): exact environment variable name.</li>
 <li><code>envLike</code> (either <code>env</code> or <code>envLike</code> must be present): regular expression matching environment variable names.</li>
-<li><code>fallback</code> (optional): fallback value if the variable is not found. Only valid when <code>env</code> is used.</li>
+<li><code>fallback</code> (optional): fallback value if the variable is not found. Only valid when <code>env</code> is used,
+because without <code>env</code> we don’t have any variable name to use when injecting our patched value.</li>
 <li><code>valueSelector</code> (optional): <a href="https://github.com/01mf02/jaq">JAQ</a> selector used to extract the value(s) from the variable contents.</li>
 <li><code>containers</code> (optional): list of containers to inspect. If omitted, the operator searches all containers in the pod template.</li>
 </ol>
