@@ -70,10 +70,10 @@ spec:
           - env: ^ORDERS_RETRY_QUEUE_
 ```
 
-Queue splitting status is exposed to users through:
+Queue splitting status is exposed to users through `mirrord queues` (aliased `mirrord qs`) subcommands:
 
-- `mirrord qs list`
-- `mirrord qs get --name <splitconfig name>`
+- `mirrord queues list`
+- `mirrord queues get --name <splitconfig name>`
 
 The exact contents of that status output are still to be defined, but the intent is that queue splitting state is inspected through the dedicated queue-splitting commands rather than through `mirrord operator status`.
 
