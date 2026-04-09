@@ -530,3 +530,8 @@ The longer-term cost is slower delivery whenever we extend queue splitting to ne
 [unresolved-questions]: #unresolved-questions
 
 1. What should be included in queue splitting status, and how much of it should be exposed through `mirrord qs list` versus `mirrord qs get`?
+
+## Future possibilities
+
+1. Use the `MirrordSplitConfig` CRD as a general configuration for "splitting" incoming data streams - both queue messages and HTTP.
+Add an option to specify message/request filter templates for sessions.
