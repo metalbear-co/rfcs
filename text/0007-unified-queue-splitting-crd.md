@@ -466,7 +466,7 @@ The status either empty or prefilled with created `tmpResources`.
 3. Controller starts split.
 4. (optional, if not prefilled) Controller creates user tmp resources. Preserves them in `MirrordClusterExternalResource`s (with owner references to `MirrordClusterSplitSession`).
 Also stores them in `.status.tmpResources`.
-5. (optional, if prefilled) Controller compares tmp resources found in `.status.tmpResources` against the resolves splitting properties.
+5. (optional, if prefilled) Controller compares tmp resources found in `.status.tmpResources` against the resolved splitting properties.
 6. Controller fills `.status.envUpdates`.
 7. Initiator of the split observes filled env updates and resumes work.
 
