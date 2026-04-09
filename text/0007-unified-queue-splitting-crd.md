@@ -215,7 +215,7 @@ Each queue entry supports the following fields:
 3. `clientConfig` (optional): override for `.spec.clientConfigs.<kind>`. If present, the operator uses this client configuration for this queue entry instead of the kind-wide default.
 For example, this enables support of workloads that consume from multiple message broker clusters.
 4. `queueConfig` (optional): name of a `MirrordPropertyList` containing additional queue-specific configuration.
-For example, this enables adding setting marker tags on created temporary queues.
+For example, this enables setting marker tags on created temporary queues.
 5. `appConfig` (required): describes how the target application is configured to consume the queue.
 
 `appConfig` can contain multiple keys, each corresponding to a different queue-kind-specific property that is needed in order to consume messages:
@@ -234,13 +234,16 @@ For example, this enables adding setting marker tags on created temporary queues
 5. `azureServiceBus`: TBD, most likely `queue` OR `topic` and `subscription`
 
 Each key is mapped to an array of references.
-Each reference points to one or more environment variables in the target pod's template:
+Each reference points to one or more environment variables in the target pod's template,
+and supports the following fields:
 
 1. `env` (either `env` or `envLike` must be present): exact environment variable name.
-2. `envLike` (either `env` or `envLike` must be present): regular expression matching environment variable names.
+2. `envLike` (either `env` or `envLike` must be present): regular expression matching environment variable names ([fancy-regex](https://docs.rs/fancy-regex/latest/fancy_regex/)).
 3. `fallback` (optional): fallback value if the variable is not found. Only valid when `env` is used,
 because without `env` we don't have any variable name to use when injecting our patched value.
-4. `valueSelector` (optional): [JAQ](https://github.com/01mf02/jaq) selector used to extract the value(s) from the variable contents.
+4. `valueSelector` (optional): [JAQ](https://github.com/01mf02/jaq) selector used to extract the property value(s) from the variable(s) value(s).
+This allows for accessing properties that are contained in structured data.
+For example, selector `.[]` can be used to extract the names of both topics specified in JSON `{"ordersTopicName": "topicName1", "viewsTopicName": "topicName2"}`.
 5. `containers` (optional): list of containers to inspect. If omitted, the operator searches all containers in the pod template.
 
 Examples:
