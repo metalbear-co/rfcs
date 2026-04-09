@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-46ecf0aa.js";
+            window.path_to_searchindex_js = "searchindex-fd695182.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-677e5be5.js"></script>
@@ -2148,7 +2148,8 @@ because without <code>env</code> we don’t have any variable name to use when i
 <li><code>valueSelector</code> (optional): <a href="https://github.com/01mf02/jaq">JAQ</a> selector used to extract the property value(s) from the variable(s) value(s).
 This allows for accessing properties that are contained in structured data.
 For example, selector <code>.[]</code> can be used to extract the names of both topics specified in JSON <code>{"ordersTopicName": "topicName1", "viewsTopicName": "topicName2"}</code>.</li>
-<li><code>containers</code> (optional): list of containers to inspect. If omitted, the operator searches all containers in the pod template.</li>
+<li><code>containers</code> (optional): list of containers that have this reference.
+Defaults to all containers of the target workload, excluding known infra (e.g. mesh) sidecars.</li>
 </ol>
 <p>Examples:</p>
 <pre><code class="language-yaml"># The application consumes one Kafka topic.
