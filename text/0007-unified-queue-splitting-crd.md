@@ -244,7 +244,8 @@ because without `env` we don't have any variable name to use when injecting our 
 4. `valueSelector` (optional): [JAQ](https://github.com/01mf02/jaq) selector used to extract the property value(s) from the variable(s) value(s).
 This allows for accessing properties that are contained in structured data.
 For example, selector `.[]` can be used to extract the names of both topics specified in JSON `{"ordersTopicName": "topicName1", "viewsTopicName": "topicName2"}`.
-5. `containers` (optional): list of containers to inspect. If omitted, the operator searches all containers in the pod template.
+5. `containers` (optional): list of containers that have this reference.
+Defaults to all containers of the target workload, excluding known infra (e.g. mesh) sidecars.
 
 Examples:
 
