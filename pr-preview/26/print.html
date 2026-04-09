@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-58713e62.js";
+            window.path_to_searchindex_js = "searchindex-6a606b29.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-677e5be5.js"></script>
@@ -2395,11 +2395,24 @@ Each of the <code>MirrordSplitConfig</code> top-level fields could be its own an
 <p>Pros:</p>
 <ul>
 <li>We’ve heard from a customer that they don’t like CRDs</li>
-<li>We would follow a known pattern (mesh)
-Cons:</li>
-<li>mirrord-specific config would be more tightly coupled with</li>
+<li>We would follow a known pattern (mesh)</li>
+</ul>
+<p>Cons:</p>
+<ul>
+<li>mirrord-specific config would be more tightly coupled with the cluster infra</li>
 </ul>
 <h3 id="alternative-use-operator-config-map"><a class="header" href="#alternative-use-operator-config-map">Alternative: use operator config map</a></h3>
+<p>Instead of creating a new CRD for queue splitting config, we can have the user configure all queues in the operator helm chart.
+The configuration would then be mounted on the operator pods through a ConfigMap.</p>
+<p>Pros:</p>
+<ul>
+<li>Less entities for the customer to worry about</li>
+</ul>
+<p>Cons:</p>
+<ul>
+<li>Customer would no longer be able to generate configuration dynamically</li>
+<li>Mounted ConfigMaps are not refreshed instantly</li>
+</ul>
 <h3 id="impact-of-not-doing-this-3"><a class="header" href="#impact-of-not-doing-this-3">Impact of not doing this</a></h3>
 <p>If we keep the current model, queue splitting remains harder to reason about for users and harder to maintain in the operator.
 The immediate cost is duplication and inconsistent capabilities.
