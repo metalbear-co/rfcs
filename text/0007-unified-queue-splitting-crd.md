@@ -515,10 +515,21 @@ Each of the `MirrordSplitConfig` top-level fields could be its own annotation on
 Pros:
 * We've heard from a customer that they don't like CRDs
 * We would follow a known pattern (mesh)
+
 Cons:
-* mirrord-specific config would be more tightly coupled with 
+* mirrord-specific config would be more tightly coupled with the cluster infra
 
 ### Alternative: use operator config map
+
+Instead of creating a new CRD for queue splitting config, we can have the user configure all queues in the operator helm chart.
+The configuration would then be mounted on the operator pods through a ConfigMap.
+
+Pros:
+* Less entities for the customer to worry about
+
+Cons:
+* Customer would no longer be able to generate configuration dynamically
+* Mounted ConfigMaps are not refreshed instantly
 
 ### Impact of not doing this
 
