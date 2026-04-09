@@ -522,6 +522,7 @@ Pros:
 * We would follow a known pattern (mesh)
 
 Cons:
+* Users would have to manage different manifests for prod and staging. 
 * mirrord-specific config would be more tightly coupled with the cluster infra
 
 ### Alternative: use operator config map
