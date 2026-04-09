@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a606b29.js";
+            window.path_to_searchindex_js = "searchindex-46ecf0aa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-677e5be5.js"></script>
@@ -2106,7 +2106,7 @@ How that property list is interpreted remains specific to the queue kind.</p>
 <li><code>clientConfig</code> (optional): override for <code>.spec.clientConfigs.&lt;kind&gt;</code>. If present, the operator uses this client configuration for this queue entry instead of the kind-wide default.
 For example, this enables support of workloads that consume from multiple message broker clusters.</li>
 <li><code>queueConfig</code> (optional): name of a <code>MirrordPropertyList</code> containing additional queue-specific configuration.
-For example, this enables adding setting marker tags on created temporary queues.</li>
+For example, this enables setting marker tags on created temporary queues.</li>
 <li><code>appConfig</code> (required): describes how the target application is configured to consume the queue.</li>
 </ol>
 <p><code>appConfig</code> can contain multiple keys, each corresponding to a different queue-kind-specific property that is needed in order to consume messages:</p>
@@ -2138,13 +2138,16 @@ For example, this enables adding setting marker tags on created temporary queues
 <li><code>azureServiceBus</code>: TBD, most likely <code>queue</code> OR <code>topic</code> and <code>subscription</code></li>
 </ol>
 <p>Each key is mapped to an array of references.
-Each reference points to one or more environment variables in the target pod’s template:</p>
+Each reference points to one or more environment variables in the target pod’s template,
+and supports the following fields:</p>
 <ol>
 <li><code>env</code> (either <code>env</code> or <code>envLike</code> must be present): exact environment variable name.</li>
-<li><code>envLike</code> (either <code>env</code> or <code>envLike</code> must be present): regular expression matching environment variable names.</li>
+<li><code>envLike</code> (either <code>env</code> or <code>envLike</code> must be present): regular expression matching environment variable names (<a href="https://docs.rs/fancy-regex/latest/fancy_regex/">fancy-regex</a>).</li>
 <li><code>fallback</code> (optional): fallback value if the variable is not found. Only valid when <code>env</code> is used,
 because without <code>env</code> we don’t have any variable name to use when injecting our patched value.</li>
-<li><code>valueSelector</code> (optional): <a href="https://github.com/01mf02/jaq">JAQ</a> selector used to extract the value(s) from the variable contents.</li>
+<li><code>valueSelector</code> (optional): <a href="https://github.com/01mf02/jaq">JAQ</a> selector used to extract the property value(s) from the variable(s) value(s).
+This allows for accessing properties that are contained in structured data.
+For example, selector <code>.[]</code> can be used to extract the names of both topics specified in JSON <code>{"ordersTopicName": "topicName1", "viewsTopicName": "topicName2"}</code>.</li>
 <li><code>containers</code> (optional): list of containers to inspect. If omitted, the operator searches all containers in the pod template.</li>
 </ol>
 <p>Examples:</p>
