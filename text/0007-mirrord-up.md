@@ -1,9 +1,9 @@
 - Feature Name: mirrord_up
 - Start Date: 2026-04-09
 - Last Updated: 2026-04-09 
-- RFC PR: [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+- RFC PR: [metalbear-co/rfcs#27](https://github.com/metalbear-co/rfcs/pull/27)
 - RFC reference:
-  - [metalbear-co/rfcs#0000](https://github.com/metalbear-co/rfcs/pull/0000)
+  - [metalbear-co/rfcs#27](https://github.com/metalbear-co/rfcs/pull/27)
 
 ## Summary
 [summary]: #summary
