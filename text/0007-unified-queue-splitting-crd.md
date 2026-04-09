@@ -238,7 +238,8 @@ Each reference points to one or more environment variables in the target pod's t
 
 1. `env` (either `env` or `envLike` must be present): exact environment variable name.
 2. `envLike` (either `env` or `envLike` must be present): regular expression matching environment variable names.
-3. `fallback` (optional): fallback value if the variable is not found. Only valid when `env` is used.
+3. `fallback` (optional): fallback value if the variable is not found. Only valid when `env` is used,
+because without `env` we don't have any variable name to use when injecting our patched value.
 4. `valueSelector` (optional): [JAQ](https://github.com/01mf02/jaq) selector used to extract the value(s) from the variable contents.
 5. `containers` (optional): list of containers to inspect. If omitted, the operator searches all containers in the pod template.
 
